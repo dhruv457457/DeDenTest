@@ -1,4 +1,3 @@
-// File: app/dashboard/page.tsx
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -17,10 +16,14 @@ type Booking = {
   createdAt: string;
   confirmedAt: string | null;
   stay: {
+    id: string;
+    stayId: string;
     title: string;
     location: string;
     startDate: string;
     endDate: string;
+    priceUSDC: number;
+    priceUSDT: number;
   };
 };
 
@@ -29,10 +32,12 @@ export default function UserDashboard() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<any>(null);
 
   useEffect(() => {
     if (!isConnected || !address) {
       setLoading(false);
+      setBookings([]);
       return;
     }
 
@@ -41,16 +46,36 @@ export default function UserDashboard() {
         setLoading(true);
         setError(null);
         
-        const res = await fetch(`/api/user/bookings?wallet=${address}`);
+        console.log('[Dashboard] Fetching bookings for:', address);
+        const apiUrl = `/api/user/bookings?wallet=${address}`;
+        console.log('[Dashboard] API URL:', apiUrl);
         
-        if (!res.ok) {
-          throw new Error('Failed to fetch bookings');
-        }
+        const res = await fetch(apiUrl);
+        
+        console.log('[Dashboard] Response status:', res.status);
+        console.log('[Dashboard] Response ok:', res.ok);
         
         const data = await res.json();
+        console.log('[Dashboard] Response data:', data);
+        
+        if (!res.ok) {
+          throw new Error(data.error || 'Failed to fetch bookings');
+        }
+        
         setBookings(data);
+        setDebugInfo({
+          wallet: address,
+          bookingsCount: data.length,
+          timestamp: new Date().toISOString(),
+        });
       } catch (err: any) {
+        console.error('[Dashboard] Error:', err);
         setError(err.message);
+        setDebugInfo({
+          error: err.message,
+          wallet: address,
+          timestamp: new Date().toISOString(),
+        });
       } finally {
         setLoading(false);
       }
@@ -71,7 +96,7 @@ export default function UserDashboard() {
           label: 'Under Review',
           color: '#f59e0b',
           bg: '#fef3c7',
-          message: 'Your application is being reviewed. Well notify you within 24-48 hours.',
+          message: 'Your application is being reviewed. We\'ll notify you within 24-48 hours.',
         };
       case 'PENDING':
         if (isExpired) {
@@ -140,17 +165,42 @@ export default function UserDashboard() {
         <p style={styles.subtitle}>
           Wallet: {address?.substring(0, 6)}...{address?.substring(address.length - 4)}
         </p>
+        
+        {/* Debug Info Toggle */}
+        {debugInfo && (
+          <details style={styles.debugToggle}>
+            <summary style={{ cursor: 'pointer', fontSize: '0.85rem', color: '#666' }}>
+              Show Debug Info
+            </summary>
+            <pre style={styles.debugInfo}>
+              {JSON.stringify(debugInfo, null, 2)}
+            </pre>
+          </details>
+        )}
       </div>
 
       {loading ? (
-        <div style={styles.loading}>Loading your applications...</div>
+        <div style={styles.loading}>
+          <div style={styles.spinner}></div>
+          <p>Loading your applications...</p>
+        </div>
       ) : error ? (
-        <div style={styles.error}>{error}</div>
+        <div style={styles.error}>
+          <h3>❌ Error Loading Bookings</h3>
+          <p>{error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            style={styles.retryButton}
+          >
+            Retry
+          </button>
+        </div>
       ) : bookings.length === 0 ? (
         <div style={styles.empty}>
+          <div style={{ fontSize: '4rem', marginBottom: '20px' }}>📋</div>
           <h3>No Applications Yet</h3>
           <p>You haven't applied to any stays yet.</p>
-          <Link href="/" style={styles.browseButton}>
+          <Link href="/villas" style={styles.browseButton}>
             Browse Available Stays
           </Link>
         </div>
@@ -240,6 +290,15 @@ export default function UserDashboard() {
                     View Booking Details
                   </Link>
                 )}
+
+                {booking.status === 'WAITLISTED' && (
+                  <Link
+                    href={`/stay/${booking.stay.stayId}`}
+                    style={styles.viewStayButton}
+                  >
+                    View Stay Details
+                  </Link>
+                )}
               </div>
             );
           })}
@@ -255,6 +314,7 @@ const styles = {
     maxWidth: '1000px',
     margin: '0 auto',
     padding: '40px 20px',
+    minHeight: '100vh',
   },
   header: {
     marginBottom: '40px',
@@ -267,6 +327,22 @@ const styles = {
   subtitle: {
     fontSize: '1rem',
     color: '#666',
+    marginBottom: '10px',
+  },
+  debugToggle: {
+    marginTop: '10px',
+    padding: '10px',
+    backgroundColor: '#f9fafb',
+    borderRadius: '8px',
+  },
+  debugInfo: {
+    marginTop: '10px',
+    padding: '10px',
+    backgroundColor: '#1f2937',
+    color: '#10b981',
+    borderRadius: '4px',
+    fontSize: '0.75rem',
+    overflow: 'auto',
   },
   connectPrompt: {
     textAlign: 'center' as const,
@@ -290,12 +366,33 @@ const styles = {
     fontSize: '1.2rem',
     color: '#666',
   },
+  spinner: {
+    width: '50px',
+    height: '50px',
+    border: '4px solid #f3f4f6',
+    borderTop: '4px solid #0070f3',
+    borderRadius: '50%',
+    animation: 'spin 1s linear infinite',
+    margin: '0 auto 20px',
+  },
   error: {
-    padding: '20px',
+    padding: '30px',
     backgroundColor: '#fee2e2',
     color: '#dc2626',
+    borderRadius: '12px',
+    border: '2px solid #fca5a5',
+    textAlign: 'center' as const,
+  },
+  retryButton: {
+    marginTop: '20px',
+    padding: '12px 24px',
+    backgroundColor: '#dc2626',
+    color: 'white',
+    border: 'none',
     borderRadius: '8px',
-    border: '1px solid #fca5a5',
+    cursor: 'pointer',
+    fontWeight: '600',
+    fontSize: '1rem',
   },
   empty: {
     textAlign: 'center' as const,
@@ -325,6 +422,7 @@ const styles = {
     borderRadius: '12px',
     boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
     position: 'relative' as const,
+    transition: 'transform 0.2s, box-shadow 0.2s',
   },
   statusBadge: {
     display: 'inline-block',
@@ -368,6 +466,8 @@ const styles = {
     justifyContent: 'space-between',
     marginBottom: '12px',
     fontSize: '0.95rem',
+    flexWrap: 'wrap' as const,
+    gap: '10px',
   },
   detailLabel: {
     color: '#6b7280',
@@ -388,6 +488,7 @@ const styles = {
     borderRadius: '8px',
     fontWeight: '600',
     fontSize: '1.1rem',
+    transition: 'background-color 0.2s',
   },
   viewButton: {
     display: 'block',
@@ -400,5 +501,19 @@ const styles = {
     borderRadius: '8px',
     fontWeight: '600',
     fontSize: '1.1rem',
+    transition: 'background-color 0.2s',
+  },
+  viewStayButton: {
+    display: 'block',
+    width: '100%',
+    padding: '14px',
+    backgroundColor: '#6b7280',
+    color: 'white',
+    textAlign: 'center' as const,
+    textDecoration: 'none',
+    borderRadius: '8px',
+    fontWeight: '600',
+    fontSize: '1.1rem',
+    transition: 'background-color 0.2s',
   },
 } as const;

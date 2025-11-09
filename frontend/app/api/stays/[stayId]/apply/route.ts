@@ -181,8 +181,6 @@ export async function POST(
           paymentToken: newBooking.paymentToken,
           expiresAt: newBooking.expiresAt,
         },
-        // Add payment link so frontend can redirect
-        paymentLink: `/booking/${newBooking.bookingId}`,
       },
       { status: 201 }
     );

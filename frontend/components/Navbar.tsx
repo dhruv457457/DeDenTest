@@ -20,7 +20,7 @@ export function Navbar() {
 
   return (
     <nav className="bg-transparent text-white w-full z-50 sticky top-0">
-      <div className="max-w-screen-xl mx-auto px-6 py-6">
+      <div className="max-w-screen-xl mx-auto px-6 py-6 ">
         {/* Desktop Navigation */}
         <div className="hidden md:flex justify-between items-center bg-[#172a46] border-2 border-[#2a4562] rounded-full py-4 px-10 shadow-xl">
           {/* Left side links */}
