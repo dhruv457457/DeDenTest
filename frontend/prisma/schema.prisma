@@ -555,3 +555,22 @@ model SystemConfig {
   
   updatedAt       DateTime  @updatedAt
 }
+
+
+// ============================================================================
+// PAYMENT SESSION MODEL
+// ============================================================================
+
+model PaymentSession {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  orderId         String
+  status          String    @default("pending")
+  currency        String
+  humanAmount     String
+  amountBaseUnits String
+  expiresAt       DateTime
+  chainId         Int?
+  txHash          String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
