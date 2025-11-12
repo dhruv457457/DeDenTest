@@ -68,21 +68,30 @@ export default function HomePage() {
   return (
     <div className="text-white">
       {/* Hero Section */}
-      <section className="bg-[#f5f5f3] text-black   relative overflow-hidden">
-        <div className="max-w-screen-xl mx-auto px-6 grid md:grid-cols-[1fr_auto] gap-0 items-center relative">
+      <section className="bg-[#f5f5f3] text-black   relative overflow-hidden mt-20">
+        <div className="max-w-screen-xl mx-auto px-6 grid md:flex gap-0 items-center relative">
           {/* Left Column */}
-          <div className="flex flex-col z-10 max-w-2xl">
+          <div className="flex flex-col z-10 md:w-[60%] ">
             <h1
-              className="text-5xl md:text-6xl lg:text-8xl font-bold text-[#102E4A] leading-[0.95] tracking-tight"
+              className="text-5xl md:text-8xl lg:text-8xl font-medium text-[#102E4A] leading-[0.95] tracking-tight"
               style={{
                 fontFamily: "'New Rocker', cursive",
                 letterSpacing: "-0.07em",
               }}
             >
-              Where Web3 lives and builders connect
+              Where Web3 lives
+            </h1>
+            <h1
+              className="text-5xl md:text-7xl lg:text-7xl font-medium text-[#102E4A] leading-[0.95] tracking-tight "
+              style={{
+                fontFamily: "'New Rocker', cursive",
+                letterSpacing: "-0.07em",
+              }}
+            >
+              and builders connect
             </h1>
             <p
-              className="text-lg md:text-xl text-[#102E4A] mt-8 leading-relaxed font-bold"
+              className="text-lg md:text-xl text-[#102E4A] mt-4 leading-relaxed font-bold"
               style={{
                 fontFamily: "system-ui, -apple-system, 'Segoe UI', sans-serif",
                 fontWeight: 700,
@@ -137,9 +146,9 @@ export default function HomePage() {
             </div>
           </div>
           {/* Right Column - Villa Image - MUCH LARGER */}
-          <div className="relative w-[900px] h-[800px] -mr-32 md:block hidden">
+          <div className="relative w-[500px] h-[500px] -mr-32 md:block hidden">
             <Image
-              src="/images/villas-bg-remove.png"
+              src="/images/villa-bg-remove.png"
               alt="Luxury villa isometric view"
               fill
               className="object-contain scale-110"
