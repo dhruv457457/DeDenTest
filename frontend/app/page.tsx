@@ -68,10 +68,10 @@ export default function HomePage() {
   return (
     <div className="text-white">
       {/* Hero Section */}
-      <section className="bg-[#f5f5f3] text-black   relative overflow-hidden mt-20">
+      <section className="bg-transparent text-black   relative overflow-hidden z-10">
         <div className="max-w-screen-xl mx-auto px-6 grid md:flex gap-0 items-center relative">
           {/* Left Column */}
-          <div className="flex flex-col z-10 md:w-[60%] ">
+          <div className="flex flex-col z-10 md:w-[60%] mt-20">
             <h1
               className="text-5xl md:text-8xl lg:text-8xl font-medium text-[#102E4A] leading-[0.95] tracking-tight"
               style={{
@@ -90,49 +90,45 @@ export default function HomePage() {
             >
               and builders connect
             </h1>
-            <p
-              className="text-lg md:text-xl text-[#102E4A] mt-4 leading-relaxed font-bold"
-              style={{
-                fontFamily: "system-ui, -apple-system, 'Segoe UI', sans-serif",
-                fontWeight: 700,
-                letterSpacing: "-0.02em",
-              }}
-            >
+            <p className="font-berlin text-lg md:text-2xl text-[#102E4A] mt-4  font-bold md:w-[90%]">
               Decentralized Den is a luxury villa experience curated for the
               biggest Web3 events. Network. Unwind. Buidl IRL.
             </p>
+            <p className="font-berlin text-lg md:text-2xl text-[#102E4A]  font-bold md:w-[90%]">
+              Network. Unwind. Buidl IRL.
+            </p>
             <Link
               href="/villas"
-              className="bg-[#172a46] text-white text-base font-semibold py-4 px-10 rounded-full flex items-center justify-center space-x-3 mt-10 w-fit transition-all hover:scale-105 hover:shadow-2xl"
+              className="bg-[#172a46] text-white text-2xl font-semibold py-2 pl-10 pr-2 rounded-full flex items-center justify-between space-x-3 mt-10 w-fit transition-all hover:scale-105 hover:shadow-2xl gap-4"
             >
               <span>Book your stay</span>
-              <ArrowRight size={20} />
+              <div className="bg-white px-3 py-3 rounded-full text-[#172a46]">
+                <ArrowRight size={20} />
+              </div>
             </Link>
             {/* Stats */}
-            <div className="flex flex-wrap gap-x-14 gap-y-6 mt-14">
-              <div>
-                <p className="font-display text-5xl font-bold text-[#172a46]">
+            <div className="flex flex-wrap   mt-16 ">
+              <div className="flex flex-col items-center border-r pr-4 border-b-2 pb-4">
+                <p className="font-display text-6xl font-bold text-[#172a46]">
                   500+
                 </p>
-                <p className="text-sm text-gray-600 mt-1.5">
-                  Community Members
-                </p>
+                <p className="text-md text-[#172a46] ">Community Members</p>
               </div>
-              <div>
-                <p className="font-display text-5xl font-bold text-[#172a46]">
+              <div className="flex flex-col items-center border-x px-4 border-b-2 pb-4">
+                <p className="font-display text-6xl font-bold text-[#172a46]">
                   340+
                 </p>
-                <p className="text-sm text-gray-600 mt-1.5">Guest Applied</p>
+                <p className="text-md text-[#172a46] ">Guest Applied</p>
               </div>
-              <div>
-                <p className="font-display text-5xl font-bold text-[#172a46]">
+              <div className="flex flex-col items-center border-l pl-4 border-b-2 pb-4">
+                <p className="font-display text-6xl font-bold text-[#172a46]">
                   75+
                 </p>
-                <p className="text-sm text-gray-600 mt-1.5">Guest Stayed</p>
+                <p className="text-md text-[#172a46] ">Guest Stayed</p>
               </div>
             </div>
             {/* Rating */}
-            <div className="flex items-center space-x-3 mt-8">
+            <div className="flex items-center space-x-3 mt-4">
               <div className="flex text-[#172a46]">
                 <Star size={20} fill="currentColor" stroke="none" />
                 <Star size={20} fill="currentColor" stroke="none" />
@@ -140,21 +136,24 @@ export default function HomePage() {
                 <Star size={20} fill="currentColor" stroke="none" />
                 <Star size={20} fill="currentColor" stroke="none" />
               </div>
-              <span className="text-sm text-gray-700 font-semibold">
-                4.7 Average user rating
+              <span className="text-lg text-[#172a46] font-semibold">4.7</span>
+              <span className="text-sm text-[#172a46] font-semibold -ml-2 ">
+                Average user rating
               </span>
             </div>
           </div>
           {/* Right Column - Villa Image - MUCH LARGER */}
-          <div className="relative w-[500px] h-[500px] -mr-32 md:block hidden">
-            <Image
-              src="/images/villa-bg-remove.png"
-              alt="Luxury villa isometric view"
-              fill
-              className="object-contain scale-110"
-              priority
-              sizes="900px"
-            />
+          <div className="relative w-[500px] h-[500px] -mr-32 md:block hidden z-20">
+            <div className="absolute w-[620px] h-[553px]  -left-30">
+              <Image
+                src="/images/villa-bg-remove.png"
+                alt="Luxury villa isometric view"
+                fill
+                className="object-contain scale-110"
+                priority
+                sizes="900px"
+              />
+            </div>
           </div>
           {/* Mobile Villa Image */}
           <div className="md:hidden mt-12 flex justify-center">
@@ -171,18 +170,25 @@ export default function HomePage() {
           </div>
         </div>
         {/* Bottom Wave */}
-        <div className="absolute bottom-0 left-0 right-0">
-          <WaveDivider colorClassName="bg-[#172a46]" />
+        <div className="relative w-screen h-[80vh] md:h-[90vh] -mt-60">
+          <Image
+            src="/images/deden-website-margin.png"
+            alt="Bangalore Villa"
+            fill
+            className="object-cover object-center"
+            priority
+            sizes="100vw"
+          />
         </div>
       </section>
 
       {/* About Us Section */}
-      <section className="bg-[#172a46] text-white py-28 relative">
+      <section className="bg-[#172a46] text-white py-28 relative -mt-80 z-0 pt-60">
         <div className="max-w-5xl mx-auto text-center px-6 z-10 relative">
           <h2 className="font-display text-5xl md:text-6xl font-bold mb-10">
             About Us
           </h2>
-          <p className="text-base md:text-lg text-gray-300 leading-relaxed max-w-3xl mx-auto">
+          <p className="text-base md:text-lg text-gray-300   mx-auto">
             DeDen is a decentralized villa experience built for the modern
             builder — where luxury meets community. Designed around the biggest
             Web3 events, DeDen transforms exclusive villas into living spaces

@@ -1,2 +1,10 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: berlin;
+  src: url("../public/fonts/berlin.TTF");
+}
+
+@theme {
+  --font-berlin: berlin, "sans-serif";
+}

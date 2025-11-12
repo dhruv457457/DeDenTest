@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Dela_Gothic_One } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 
 import { Providers } from "@/app/providers";
@@ -14,6 +15,13 @@ const delaGothic = Dela_Gothic_One({
   subsets: ["latin"],
   weight: "400",
   variable: "--font-dela-gothic",
+});
+
+const berlin = localFont({
+  src: "../public/fonts/berlin.ttf",
+  weight: "600",
+  style: "normal",
+  variable: "--font-berlin",
 });
 
 export const metadata: Metadata = {
@@ -31,14 +39,18 @@ export default function RootLayout({
       <head>
         {/* Add Google Fonts for New Rocker */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
         <link
           href="https://fonts.googleapis.com/css2?family=New+Rocker&display=swap"
           rel="stylesheet"
         />
       </head>
       <body
-        className={`${inter.variable} ${delaGothic.variable} font-sans bg-[#f5f5f3]`}
+        className={`${inter.variable} ${delaGothic.variable} ${berlin.variable} font-berlin bg-[#E7E4DF]`}
       >
         <Providers>
           <Navbar />

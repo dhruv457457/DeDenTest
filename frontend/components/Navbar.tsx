@@ -77,7 +77,7 @@ export function Navbar() {
 
             {/* Auth Section */}
             {status === "loading" ? (
-              <button className="bg-[#f5f5f3] text-[#172a46] text-sm font-bold py-3 px-6 rounded-[14px] shadow-lg">
+              <button className="bg-[#E7E4DF] text-[#172a46] text-sm font-bold py-3 px-6 rounded-[14px] shadow-lg">
                 ...
               </button>
             ) : status === "authenticated" && session.user ? (
@@ -115,7 +115,7 @@ export function Navbar() {
             ) : (
               <button
                 onClick={handleSignIn}
-                className="bg-[#f5f5f3] text-[#172a46] text-sm font-bold py-3 px-6 rounded-[14px] transition-all hover:scale-105 hover:bg-white shadow-lg"
+                className="bg-[#E7E4DF] text-[#172a46] text-sm font-bold py-3 px-6 rounded-[14px] transition-all hover:scale-105 hover:bg-white shadow-lg"
               >
                 SIGN IN
               </button>
