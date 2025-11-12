@@ -12,6 +12,7 @@ const config: Config = {
         berlin: ["var(--font-berlin)", "sans-serif"],
         sans: ["var(--font-inter)", "sans-serif"],
         display: ["var(--font-dela-gothic)", "sans-serif"],
+        inter: ["Inter", "sans-serif"],
       },
       colors: {
         "den-blue": "#172a46",

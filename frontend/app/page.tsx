@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight, Star } from "lucide-react";
+import { VillaSlider } from "@/components/VillaSlider";
 
 // SVG component for the wave dividers
 const WaveDivider: React.FC<{
@@ -23,44 +24,47 @@ const testimonials = [
   {
     id: 1,
     quote:
-      "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book.",
+      "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged.",
+    quoteBold:
+      "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, ",
     name: "Name ABCD, ABCDE @ABCDE",
-    colSpan: "md:col-span-2",
+    colSpan: "md:col-span-5",
   },
   {
     id: 2,
     quote:
-      "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
+      "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and",
+    quoteBold:
+      "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
     name: "Name ABCD, ABCDE @ABCDE",
-    colSpan: "md:col-span-1",
+    colSpan: "md:col-span-4",
   },
   {
     id: 3,
     quote:
-      "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard",
+      "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and",
+    quoteBold:
+      "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
     name: "Name ABCD, ABCDE @ABCDE",
-    colSpan: "md:col-span-1",
+    colSpan: "md:col-span-3",
   },
   {
     id: 4,
     quote:
-      "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
+      "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and",
+    quoteBold:
+      "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
     name: "Name ABCD, ABCDE @ABCDE",
-    colSpan: "md:col-span-1",
+    colSpan: "md:col-span-3",
   },
   {
     id: 5,
     quote:
-      "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
+      "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and",
+    quoteBold:
+      "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
     name: "Name ABCD, ABCDE @ABCDE",
-    colSpan: "md:col-span-1",
-  },
-  {
-    id: 6,
-    quote:
-      "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
-    name: "Name ABCD, ABCDE @ABCDE",
-    colSpan: "md:col-span-1",
+    colSpan: "md:col-span-3",
   },
 ];
 
@@ -188,9 +192,9 @@ export default function HomePage() {
           <h2 className="font-display text-5xl md:text-6xl font-bold mb-10">
             About Us
           </h2>
-          <p className="text-base md:text-lg text-gray-300   mx-auto">
+          <p className="font-inter text-base md:text-lg text-gray-300   mx-auto -tracking-wider">
             DeDen is a decentralized villa experience built for the modern
-            builder — where luxury meets community. Designed around the biggest
+            builder, where luxury meets community. Designed around the biggest
             Web3 events, DeDen transforms exclusive villas into living spaces
             for founders, creators, and dreamers to connect beyond panels and
             pitch decks.
@@ -204,8 +208,8 @@ export default function HomePage() {
               className="w-full"
             />
           </div>
-          <p className="text-base md:text-lg text-gray-300 leading-relaxed max-w-3xl mx-auto mt-14">
-            Each Den is more than a stay — it's an ecosystem where collaboration
+          <p className="font-inter text-base md:text-lg text-gray-300   mx-auto mt-14 -tracking-wider">
+            Each Den is more than a stay, it's an ecosystem where collaboration
             happens over breakfast, ideas flow at midnight, and every
             conversation builds the next wave of innovation. From curated stays
             to immersive IRL networking, DeDen redefines what it means to build
@@ -220,8 +224,8 @@ export default function HomePage() {
           <div className="bg-[#f5f5f3] text-black rounded-[32px] p-12 md:p-16 grid md:grid-cols-2 gap-14 items-center shadow-2xl">
             {/* Left Column */}
             <div className="flex flex-col">
-              <h3 className="font-display text-3xl md:text-4xl lg:text-5xl font-bold text-[#172a46] leading-tight">
-                The Next Den Awaits — Bangalore | Nov 29 – Dec 8
+              <h3 className="font-display text-xl md:text-2xl lg:text-3xl font-bold text-[#172a46] leading-tight">
+                The Next Den Awaits — Bangalore | Nov 29 – Dec 10
               </h3>
               <p className="text-lg md:text-xl text-gray-800 mt-8 font-bold leading-relaxed">
                 Experience India Blockchain Week like never before.
@@ -230,14 +234,14 @@ export default function HomePage() {
                 Stay where the most brilliant minds in Web3 gather, collaborate,
                 and unwind.
               </p>
-              <p className="text-base text-gray-600 mt-4 leading-relaxed">
+              <p className="font-inter text-base text-gray-600 mt-4 -tracking-wider">
                 DeDen Bangalore is your home for IBW — a private villa designed
                 for deep conversations, sleepless builds, and unforgettable
                 after-hours. Join founders, investors, and creators who live
                 where innovation never sleeps.
               </p>
               <Link
-                href="/stay/bangalore-2025"
+                href="/stay/IBW-2025-2025"
                 className="bg-[#172a46] text-white text-base font-semibold py-4 px-9 rounded-full flex items-center justify-center space-x-3 mt-10 w-fit transition-all hover:scale-105 hover:shadow-2xl"
               >
                 <span>Meet us at Bangalore</span>
@@ -245,17 +249,7 @@ export default function HomePage() {
               </Link>
             </div>
             {/* Right Column - Villa Image */}
-            <div className="bg-gradient-to-br from-[#e0e0e0] to-[#c5c5c5] h-96 md:h-[450px] rounded-3xl flex items-center justify-center overflow-hidden shadow-inner relative">
-              <div className="relative w-full h-full p-8">
-                <Image
-                  src="/images/villas-bg-remove.png"
-                  alt="Bangalore Villa"
-                  fill
-                  className="object-contain"
-                  sizes="(max-width: 768px) 100vw, 50vw"
-                />
-              </div>
-            </div>
+            <VillaSlider />
           </div>
         </div>
       </section>
@@ -270,14 +264,14 @@ export default function HomePage() {
           <h2 className="font-display text-5xl md:text-6xl font-bold text-[#172a46] text-center mb-20">
             Testimonials
           </h2>
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid md:grid-cols-9 gap-6">
             {testimonials.map((item) => (
               <div
                 key={item.id}
-                className={`bg-[#172a46] text-white p-8 md:p-10 rounded-3xl flex flex-col shadow-xl hover:shadow-2xl transition-shadow ${item.colSpan}`}
+                className={`bg-[#172a46] text-white p-8 md:p-10 rounded-3xl flex flex-col shadow-xl hover:shadow-2xl transition-shadow ${item.colSpan} md:h-[350px]`}
               >
-                <p className="text-sm md:text-base text-gray-300 leading-relaxed flex-grow">
-                  {item.quote}
+                <p className="font-inter text-sm md:text-lg text-gray-300  grow -tracking-wider">
+                  "{item.quote}"
                 </p>
                 <div className="flex items-center space-x-4 mt-8">
                   <div className="w-12 h-12 rounded-full bg-[#f5f5f3] flex items-center justify-center flex-shrink-0">
@@ -299,21 +293,63 @@ export default function HomePage() {
           <h2 className="font-display text-5xl md:text-6xl font-bold text-[#172a46] text-center mb-20">
             Gallery
           </h2>
-          <div className="grid grid-cols-3 md:grid-cols-3 gap-5">
-            <div className="bg-[#172a46] h-56 md:h-96 rounded-3xl flex items-center justify-center text-white font-semibold text-xl col-span-1 shadow-lg hover:shadow-2xl transition-shadow">
-              IMAGE
+
+          {/* Responsive 6-column grid */}
+          <div className="grid grid-cols-6 gap-5">
+            {/* Image 1 */}
+            <div className="relative h-56 md:h-96 col-span-2 rounded-3xl overflow-hidden shadow-lg hover:shadow-2xl transition-transform hover:scale-[1.02]">
+              <Image
+                src="/images/dedenbangalore1.jpeg"
+                alt="DeDen Bangalore Villa 1"
+                fill
+                className="object-cover"
+                sizes="(max-width: 768px) 100vw, 33vw"
+                priority
+              />
             </div>
-            <div className="bg-[#172a46] h-56 md:h-96 rounded-3xl flex items-center justify-center text-white font-semibold text-xl col-span-1 shadow-lg hover:shadow-2xl transition-shadow">
-              IMAGE
+
+            {/* Image 2 */}
+            <div className="relative h-56 md:h-96 col-span-2 rounded-3xl overflow-hidden shadow-lg hover:shadow-2xl transition-transform hover:scale-[1.02]">
+              <Image
+                src="/images/dedenbangalore2.jpeg"
+                alt="DeDen Bangalore Villa 2"
+                fill
+                className="object-cover"
+                sizes="(max-width: 768px) 100vw, 33vw"
+              />
             </div>
-            <div className="bg-[#172a46] h-56 md:h-96 rounded-3xl flex items-center justify-center text-white font-semibold text-xl col-span-1 shadow-lg hover:shadow-2xl transition-shadow">
-              IMAGE
+
+            {/* Image 3 */}
+            <div className="relative h-56 md:h-96 col-span-2 rounded-3xl overflow-hidden shadow-lg hover:shadow-2xl transition-transform hover:scale-[1.02]">
+              <Image
+                src="/images/dedenbangalore3.jpeg"
+                alt="DeDen Bangalore Villa 3"
+                fill
+                className="object-cover"
+                sizes="(max-width: 768px) 100vw, 33vw"
+              />
             </div>
-            <div className="bg-[#172a46] h-56 md:h-96 rounded-3xl flex items-center justify-center text-white font-semibold text-xl col-span-2 shadow-lg hover:shadow-2xl transition-shadow">
-              IMAGE
+
+            {/* Image 4 */}
+            <div className="relative h-56 md:h-96 col-span-3 rounded-3xl overflow-hidden shadow-lg hover:shadow-2xl transition-transform hover:scale-[1.02]">
+              <Image
+                src="/images/dedenbangalore4.jpeg"
+                alt="DeDen Bangalore Villa 4"
+                fill
+                className="object-cover"
+                sizes="(max-width: 768px) 100vw, 50vw"
+              />
             </div>
-            <div className="bg-[#172a46] h-56 md:h-96 rounded-3xl flex items-center justify-center text-white font-semibold text-xl col-span-1 shadow-lg hover:shadow-2xl transition-shadow">
-              IMAGE
+
+            {/* Image 5 */}
+            <div className="relative h-56 md:h-96 col-span-3 rounded-3xl overflow-hidden shadow-lg hover:shadow-2xl transition-transform hover:scale-[1.02]">
+              <Image
+                src="/images/dedenbangalore5.jpeg"
+                alt="DeDen Bangalore Villa 5"
+                fill
+                className="object-cover"
+                sizes="(max-width: 768px) 100vw, 50vw"
+              />
             </div>
           </div>
         </div>
