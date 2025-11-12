@@ -18,7 +18,7 @@ const delaGothic = Dela_Gothic_One({
 });
 
 const berlin = localFont({
-  src: "../public/fonts/berlin.ttf",
+  src: "./fonts/berlin.ttf",
   weight: "600",
   style: "normal",
   variable: "--font-berlin",
