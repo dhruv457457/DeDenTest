@@ -126,7 +126,7 @@ export default function HomePage() {
             </div>
 
             {/* Stats */}
-            <div className="hidden md:visible flex flex-wrap mt-8  md:mt-16 ">
+            <div className="hidden md:flex flex-wrap mt-8  md:mt-16 ">
               <div className="flex flex-col items-center border-r pr-4 border-b-2 pb-4">
                 <p className="font-display text-6xl font-bold text-[#172a46]">
                   500+
@@ -147,7 +147,7 @@ export default function HomePage() {
               </div>
             </div>
             {/* Rating */}
-            <div className="hidden md:visible flex items-center space-x-3 mt-4">
+            <div className="hidden md:flex items-center space-x-3 mt-4">
               <div className="flex text-[#172a46]">
                 <Star size={20} fill="currentColor" stroke="none" />
                 <Star size={20} fill="currentColor" stroke="none" />
@@ -163,7 +163,7 @@ export default function HomePage() {
           </div>
           {/* Right Column - Villa Image - MUCH LARGER */}
           <div className="relative w-[500px] h-[500px] -mr-32 md:block hidden z-20">
-            <div className="absolute w-[620px] h-[553px]  -left-30">
+            <div className="absolute w-[620px] h-[553px]  -left-30 ">
               <Image
                 src="/images/villa-bg-remove.png"
                 alt="Luxury villa isometric view"
@@ -190,7 +190,7 @@ export default function HomePage() {
       </section>
 
       {/* About Us Section */}
-      <section className="bg-[#172a46] text-white py-28 relative -mt-80 z-0 pt-60">
+      <section className="bg-[#172a46] text-white py-28 relative -mt-90 z-0 pt-60">
         <div className="max-w-5xl mx-auto text-center px-6 z-10 relative">
           <h2 className="font-display text-3xl md:text-6xl font-bold mb-10">
             About Us

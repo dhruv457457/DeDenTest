@@ -3,11 +3,24 @@
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { ArrowRight, CheckCircle, Clock, Loader2, AlertCircle } from "lucide-react";
+import {
+  ArrowRight,
+  CheckCircle,
+  Clock,
+  Loader2,
+  AlertCircle,
+} from "lucide-react";
 
 interface BookingStatusData {
   hasBooking: boolean;
-  status?: "PENDING" | "CONFIRMED" | "WAITLISTED" | "CANCELLED" | "REFUNDED" | "EXPIRED" | "FAILED";
+  status?:
+    | "PENDING"
+    | "CONFIRMED"
+    | "WAITLISTED"
+    | "CANCELLED"
+    | "REFUNDED"
+    | "EXPIRED"
+    | "FAILED";
   bookingId?: string;
   confirmedAt?: string;
   expiresAt?: string;
@@ -21,10 +34,17 @@ interface StayApplyButtonProps {
   className?: string;
 }
 
-export default function StayApplyButton({ stayId, stayTitle, slotsAvailable, className = "" }: StayApplyButtonProps) {
+export default function StayApplyButton({
+  stayId,
+  stayTitle,
+  slotsAvailable,
+  className = "",
+}: StayApplyButtonProps) {
   const { data: session, status: sessionStatus } = useSession();
-  
-  const [bookingStatus, setBookingStatus] = useState<BookingStatusData | null>(null);
+
+  const [bookingStatus, setBookingStatus] = useState<BookingStatusData | null>(
+    null
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [timeLeft, setTimeLeft] = useState<string>("");
 
@@ -39,7 +59,9 @@ export default function StayApplyButton({ stayId, stayTitle, slotsAvailable, cla
       }
 
       try {
-        const response = await fetch(`/api/stays/${stayId}/booking-status?wallet=${linkedWallet}`);
+        const response = await fetch(
+          `/api/stays/${stayId}/booking-status?wallet=${linkedWallet}`
+        );
         if (response.ok) {
           const data = await response.json();
           setBookingStatus(data);
@@ -69,12 +91,16 @@ export default function StayApplyButton({ stayId, stayTitle, slotsAvailable, cla
           clearInterval(interval);
           setIsLoading(true);
           setTimeout(() => {
-            setBookingStatus(prev => prev ? ({ ...prev, status: "EXPIRED" }) : null);
+            setBookingStatus((prev) =>
+              prev ? { ...prev, status: "EXPIRED" } : null
+            );
             setIsLoading(false);
           }, 1000);
         } else {
           const hours = Math.floor(distance / (1000 * 60 * 60));
-          const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+          const minutes = Math.floor(
+            (distance % (1000 * 60 * 60)) / (1000 * 60)
+          );
           const seconds = Math.floor((distance % (1000 * 60)) / 1000);
           setTimeLeft(`${hours}h ${minutes}m ${seconds}s`);
         }
@@ -108,15 +134,25 @@ export default function StayApplyButton({ stayId, stayTitle, slotsAvailable, cla
       <div className={className}>
         {noSlotsAvailable && (
           <div className="text-center mb-3">
-            <p className="text-white/80 text-sm font-semibold">⚠️ No slots available</p>
+            <p className="text-white/80 text-sm font-semibold">
+              ⚠️ No slots available
+            </p>
           </div>
         )}
         <Link
           href="/auth/signin"
-          className="w-full bg-white text-[#172a46] text-xl font-bold py-5 px-12 rounded-full inline-flex items-center justify-center gap-3 hover:scale-105 transition-all shadow-xl hover:shadow-2xl"
+          className="
+  w-full bg-white text-[#172a46] 
+  text-base md:text-xl 
+  font-bold 
+  py-3 px-6 md:py-5 md:px-12 
+  rounded-full 
+  inline-flex items-center justify-center gap-2 md:gap-3 
+  hover:scale-105 transition-all shadow-xl hover:shadow-2xl
+"
         >
           <span>Sign In to Apply</span>
-          <ArrowRight size={24} />
+          <ArrowRight className="w-4 h-4 md:w-6 md:h-6" />
         </Link>
       </div>
     );
@@ -168,13 +204,15 @@ export default function StayApplyButton({ stayId, stayTitle, slotsAvailable, cla
     // PENDING PAYMENT
     if (status === "PENDING") {
       const isExpired = expiresAt && new Date(expiresAt) < new Date();
-      
+
       if (isExpired) {
         return (
           <div className={className}>
             <div className="text-center mb-4">
               <div className="text-5xl mb-2">⏰</div>
-              <p className="text-white text-lg font-semibold">Payment Expired</p>
+              <p className="text-white text-lg font-semibold">
+                Payment Expired
+              </p>
             </div>
             <Link
               href={`/stay/${stayId}/apply`}
@@ -246,7 +284,9 @@ export default function StayApplyButton({ stayId, stayTitle, slotsAvailable, cla
           <div className="text-center mb-4">
             <div className="text-5xl mb-2">❌</div>
             <p className="text-white text-lg font-semibold">
-              {status === "CANCELLED" ? "Booking Cancelled" : "Payment Refunded"}
+              {status === "CANCELLED"
+                ? "Booking Cancelled"
+                : "Payment Refunded"}
             </p>
           </div>
           {noSlotsAvailable ? (
@@ -340,7 +380,8 @@ export default function StayApplyButton({ stayId, stayTitle, slotsAvailable, cla
       {slotsAvailable <= 3 && (
         <div className="text-center mb-3">
           <p className="text-yellow-300 text-sm font-semibold animate-pulse">
-            ⚡ Only {slotsAvailable} {slotsAvailable === 1 ? 'slot' : 'slots'} left!
+            ⚡ Only {slotsAvailable} {slotsAvailable === 1 ? "slot" : "slots"}{" "}
+            left!
           </p>
         </div>
       )}
