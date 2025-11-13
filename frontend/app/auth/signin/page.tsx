@@ -58,7 +58,7 @@ function SignInForm() {
       let currentChainId = chainId;
 
       while ((!currentAddress || !currentChainId) && attempts < maxAttempts) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
         // Re-check the hook values
         currentAddress = address;
         currentChainId = chainId;
@@ -108,7 +108,10 @@ function SignInForm() {
       }
     } catch (e: any) {
       console.error("Wallet sign-in error:", e);
-      if (e.message.includes("User rejected") || e.message.includes("User denied")) {
+      if (
+        e.message.includes("User rejected") ||
+        e.message.includes("User denied")
+      ) {
         setError("Sign-in request rejected.");
       } else {
         setError(e.message || "Failed to sign in with wallet.");
@@ -146,70 +149,64 @@ function SignInForm() {
   }, [searchParams, router]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#f5f5f3] p-4 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-[#E7E4DF] p-4 relative overflow-hidden w-full h-full">
       {/* Sign-In Card */}
-      <div className="max-w-md w-full bg-[#172a46] rounded-2xl shadow-2xl p-8 z-10">
-        
+      <div className="flex flex-col md:flex-row  w-full bg-[#172a46] rounded-2xl shadow-2xl p-8 z-10 md:w-5/12 md:-mt-60 md:justify-between md:items-center">
         {/* Logo */}
-        <div className="flex justify-center mb-6">
-          <Link href="/">
-            <Image
-              src="/images/logo-no-bg.png"
-              alt="DEDEN Logo"
-              width={140}
-              height={50}
-              className="h-12 w-auto"
-            />
-          </Link>
+        <div>
+          <h1 className="font-berlin text-5xl md:text-7xl font-bold text-center text-white mb-6">
+            Sign In
+          </h1>
+
+          <p className="text-center text-gray-300 mb-8">
+            Choose your preferred method to log in.
+          </p>
+          {error && (
+            <div className="bg-red-900 border border-red-700 text-red-100 px-4 py-3 rounded-lg mb-6 text-sm">
+              <strong>Error:</strong> {error}
+            </div>
+          )}
+        </div>
+        <div className="">
+          <div className="space-y-4">
+            {/* Google Button */}
+            <button
+              onClick={handleGoogleSignIn}
+              disabled={isLoadingGoogle || isLoadingWallet}
+              className="w-full flex items-center justify-center gap-3 bg-white text-[#172a46] font-semibold py-3 px-5 rounded-full md:rounded-xl shadow-lg transition-all hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed "
+            >
+              {isLoadingGoogle ? (
+                <Spinner />
+              ) : (
+                <>
+                  <GoogleIcon /> Sign in with Google
+                </>
+              )}
+            </button>
+
+            {/* Wallet Button */}
+            <button
+              onClick={handleWalletSignIn}
+              disabled={isLoadingWallet || isLoadingGoogle}
+              className="w-full flex items-center justify-center gap-3 bg-[#2a4562] text-white font-semibold py-3 px-5 rounded-full md:rounded-xl shadow-lg transition-all hover:bg-[#3a5572] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoadingWallet ? (
+                <Spinner />
+              ) : (
+                <>
+                  <WalletIcon /> Sign in with Wallet
+                </>
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Heading */}
-        <h1
-          className="text-5xl font-bold text-center text-white mb-6"
-          style={{
-            fontFamily: "'New Rocker', cursive",
-            letterSpacing: "-0.07em",
-          }}
-        >
-          Sign In
-        </h1>
-
-        <p className="text-center text-gray-300 mb-8">
-          Choose your preferred method to log in.
-        </p>
 
         {/* Error message */}
-        {error && (
-          <div className="bg-red-900 border border-red-700 text-red-100 px-4 py-3 rounded-lg mb-6 text-sm">
-            <strong>Error:</strong> {error}
-          </div>
-        )}
-
-        <div className="space-y-4">
-          {/* Google Button */}
-          <button
-            onClick={handleGoogleSignIn}
-            disabled={isLoadingGoogle || isLoadingWallet}
-            className="w-full flex items-center justify-center gap-3 bg-white text-[#172a46] font-semibold py-3 px-5 rounded-full shadow-lg transition-all hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isLoadingGoogle ? <Spinner /> : <><GoogleIcon /> Sign in with Google</>}
-          </button>
-
-          {/* Wallet Button */}
-          <button
-            onClick={handleWalletSignIn}
-            disabled={isLoadingWallet || isLoadingGoogle}
-            className="w-full flex items-center justify-center gap-3 bg-[#2a4562] text-white font-semibold py-3 px-5 rounded-full shadow-lg transition-all hover:bg-[#3a5572] disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isLoadingWallet ? <Spinner /> : <><WalletIcon /> Sign in with Wallet</>}
-          </button>
-        </div>
       </div>
 
       {/* Bottom Wave */}
-      <div className="absolute bottom-0 left-0 right-0">
-        <WaveDivider colorClassName="bg-[#172a46]" />
-      </div>
     </div>
   );
 }
@@ -217,7 +214,13 @@ function SignInForm() {
 // --- Default export with Suspense wrapper ---
 export default function SignInPage() {
   return (
-    <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#f5f5f3]"><div className="text-[#172a46] text-lg">Loading...</div></div>}>
+    <React.Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-[#f5f5f3]">
+          <div className="text-[#172a46] text-lg">Loading...</div>
+        </div>
+      }
+    >
       <SignInForm />
     </React.Suspense>
   );
