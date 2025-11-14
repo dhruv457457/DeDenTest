@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/database';
-import { BookingStatus, UserRole } from '@prisma/client';
+import { BookingStatus } from '@prisma/client'; // UserRole is no longer needed
+import { getServerSession } from "next-auth"; // 1. Import getServerSession
+import { authOptions } from "@/app/api/auth/[...nextauth]/route"; // 2. Import your authOptions
 
 /**
  * Apply for a stay (join waitlist) - WITH ROOM PRICING
@@ -11,6 +13,20 @@ export async function POST(
   context: { params: Promise<{ stayId: string }> }
 ) {
   try {
+    // --- ⬇️ START: THE FIX ⬇️ ---
+
+    // 1. --- Get Authenticated Session ---
+    // We get the user from their secure session, not the request body.
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user || !session.user.id) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+    
+    // This is our trusted user ID
+    const userId = session.user.id;
+
+    // --- ⬆️ END: THE FIX ⬆️ ---
+
     const { stayId } = await context.params;
     
     console.log('[API] Received stayId from URL:', stayId);
@@ -34,7 +50,7 @@ export async function POST(
       socialLinkedin,
     } = body;
 
-    // 1. --- Validation ---
+    // 2. --- Validation ---
     if (!stayId || stayId === 'undefined') {
       console.error('[API] Invalid stayId:', stayId);
       return NextResponse.json(
@@ -43,7 +59,9 @@ export async function POST(
       );
     }
 
-    if (!walletAddress || !email || !displayName || !gender || !age || !mobileNumber) {
+    // We still validate the form body, but we no longer need to check
+    // email/displayName for user creation, only that the required fields exist.
+    if (!walletAddress || !gender || !age || !mobileNumber || !email || !displayName) {
       console.error('[API] Missing required fields');
       return NextResponse.json(
         { error: 'Missing required fields: walletAddress, email, displayName, gender, age, mobileNumber' },
@@ -58,7 +76,7 @@ export async function POST(
       );
     }
 
-    // 2. --- Find the Stay ---
+    // 3. --- Find the Stay ---
     const stay = await db.stay.findUnique({
       where: { stayId: stayId },
     });
@@ -79,12 +97,11 @@ export async function POST(
       );
     }
 
-    // 🆕 3. --- FIND SELECTED ROOM & GET PRICE ---
+    // 4. --- FIND SELECTED ROOM & GET PRICE ---
     let roomPrice: number | null = null;
     let roomName: string | null = null;
 
     if (selectedRoomId) {
-      // Rooms are stored as JSON array in Stay
       const rooms = (stay.rooms as any[]) || [];
       const selectedRoom = rooms.find((r: any) => r.id === selectedRoomId);
       
@@ -97,14 +114,34 @@ export async function POST(
       }
     }
 
-    // 4. --- Find or Create User ---
-    let user = await db.user.findUnique({
-      where: { walletAddress: walletAddress },
+    // --- ⬇️ START: THE FIX (Part 2) ⬇️ ---
+    
+    // 5. --- Get & Update Authenticated User ---
+    // We are NO LONGER finding or creating a user.
+    // We are getting the user from the session and UPDATING their profile
+    // with the info from the application form.
+
+    // Check if the email from the form is already used by ANOTHER user
+    const emailConflict = await db.user.findFirst({
+      where: {
+        email: email,
+        id: { not: userId }, // Check for users other than the current one
+      },
     });
 
-    if (user) {
-      const updateData: any = {
+    if (emailConflict) {
+      return NextResponse.json(
+        { error: 'This email is already registered with another account.' },
+        { status: 409 }
+      );
+    }
+
+    // Update the user's profile with the form data
+    const user = await db.user.update({
+      where: { id: userId },
+      data: {
         displayName: displayName,
+        email: email,
         firstName: firstName,
         lastName: lastName,
         role: role,
@@ -114,68 +151,21 @@ export async function POST(
         socialTwitter: socialTwitter,
         socialTelegram: socialTelegram,
         socialLinkedin: socialLinkedin,
-      };
+        // We only add the wallet address IF it's not already set
+        // The dashboard is the primary place to *link* a wallet.
+        walletAddress: walletAddress,
+      },
+    });
+    
+    console.log('[API] User profile updated:', user.displayName);
+    
+    // --- ⬆️ END: THE FIX (Part 2) ⬆️ ---
 
-      if (user.email !== email) {
-        const emailConflict = await db.user.findFirst({
-          where: {
-            email: email,
-            id: { not: user.id },
-          },
-        });
 
-        if (!emailConflict) {
-          updateData.email = email;
-        } else {
-          console.log('[API] Email already in use by another user, skipping email update');
-        }
-      }
-
-      user = await db.user.update({
-        where: { walletAddress: walletAddress },
-        data: updateData,
-      });
-      
-      console.log('[API] User updated:', user.displayName);
-    } else {
-      const existingEmailUser = await db.user.findUnique({
-        where: { email: email },
-      });
-
-      if (existingEmailUser) {
-        return NextResponse.json(
-          { 
-            error: 'This email is already registered with another wallet. Please use a different email or sign in with your existing account.',
-          },
-          { status: 409 }
-        );
-      }
-
-      user = await db.user.create({
-        data: {
-          walletAddress: walletAddress,
-          email: email,
-          displayName: displayName,
-          firstName: firstName,
-          lastName: lastName,
-          role: role,
-          gender: gender,
-          age: age,
-          mobileNumber: mobileNumber,
-          socialTwitter: socialTwitter,
-          socialTelegram: socialTelegram,
-          socialLinkedin: socialLinkedin,
-          userRole: UserRole.GUEST,
-        },
-      });
-      
-      console.log('[API] User created:', user.displayName);
-    }
-
-    // 5. --- Check for Duplicate Application ---
+    // 6. --- Check for Duplicate Application ---
     const existingBooking = await db.booking.findFirst({
       where: {
-        userId: user.id,
+        userId: user.id, // Use the trusted userId from the session/update
         stayId: stay.id,
       },
     });
@@ -192,24 +182,24 @@ export async function POST(
       );
     }
 
-    // 🆕 6. --- Create WAITLISTED Booking WITH ROOM DATA ---
+    // 7. --- Create WAITLISTED Booking WITH ROOM DATA ---
     const randomId = `${stayId}-${Date.now()}`;
 
     const newBooking = await db.booking.create({
       data: {
         bookingId: randomId,
         status: BookingStatus.WAITLISTED,
-        userId: user.id,
+        userId: user.id, // Use the trusted userId
         stayId: stay.id,
-        guestName: displayName,
-        guestEmail: email,
+        guestName: user.displayName, // Use the updated user info
+        guestEmail: user.email,     // Use the updated user info
         guestGender: gender,
         guestAge: age,
         guestMobile: mobileNumber,
         preferredRoomId: selectedRoomId || null,
         selectedRoomId: selectedRoomId || null,
-        selectedRoomPrice: roomPrice, // 🆕 STORE ROOM PRICE
-        selectedRoomName: roomName,   // 🆕 STORE ROOM NAME
+        selectedRoomPrice: roomPrice, 
+        selectedRoomName: roomName,   
         guestCount: 1,
         optInGuestList: false,
       },
@@ -217,18 +207,18 @@ export async function POST(
 
     console.log('[API] Booking created:', newBooking.bookingId);
 
-    // 7. --- Log Activity ---
+    // 8. --- Log Activity ---
     await db.activityLog.create({
       data: {
-        userId: user.id,
+        userId: user.id, // Use the trusted userId
         bookingId: newBooking.id,
         action: 'application_submitted',
         entity: 'booking',
         entityId: newBooking.id,
         details: {
           stayId: stay.stayId,
-          email: email,
-          walletAddress: walletAddress,
+          email: user.email,
+          walletAddress: walletAddress, // This is the wallet they applied with
           gender: gender,
           age: age,
           mobileNumber: mobileNumber,
@@ -239,7 +229,7 @@ export async function POST(
       },
     });
 
-    // 8. --- Return Success ---
+    // 9. --- Return Success ---
     return NextResponse.json(
       {
         success: true,
@@ -264,6 +254,8 @@ export async function POST(
       );
     }
 
+    // This 'P2002' error for 'email' should now be caught by our manual check,
+    // but this is a good safety net.
     if ((error as any).code === 'P2002') {
       const meta = (error as any).meta;
       if (meta?.target?.includes('email')) {
