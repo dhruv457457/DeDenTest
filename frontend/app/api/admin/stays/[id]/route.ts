@@ -5,38 +5,38 @@ import { db } from '@/lib/database';
 
 /**
  * GET /api/admin/stays/[id]
- * Fetches a single stay's details for an edit page
+ * Fetches a specific stay by ID
  */
 export async function GET(
   request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    // ✅ FIX 1: Await params in Next.js 15
     const { id } = await context.params;
-    
+
     const stay = await db.stay.findUnique({
       where: {
         id: id,
       },
+      include: {
+        // Include any relations you need, e.g.:
+        // sponsors: true,
+        // bookings: true,
+      },
     });
 
     if (!stay) {
-      return NextResponse.json({ error: 'Stay not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Stay not found' },
+        { status: 404 }
+      );
     }
 
-    // ✅ FIX 2: Convert dates to ISO strings for the frontend
-    const stayWithFormattedDates = {
-      ...stay,
-      startDate: stay.startDate.toISOString().split('T')[0], // YYYY-MM-DD
-      endDate: stay.endDate.toISOString().split('T')[0],
-    };
-
-    return NextResponse.json(stayWithFormattedDates);
+    return NextResponse.json(stay);
   } catch (error) {
     console.error('[API] Error fetching stay:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: (error as Error).message },
       { status: 500 }
     );
   }
@@ -51,7 +51,6 @@ export async function PATCH(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    // ✅ FIX 1: Await params in Next.js 15
     const { id } = await context.params;
     const body = await request.json();
 
@@ -60,9 +59,9 @@ export async function PATCH(
       delete body.id;
     }
 
-    // ✅ FIX 2: Convert date strings to proper DateTime objects
     const dataToUpdate: any = { ...body };
     
+    // --- 1. Top-Level Date/Duration Conversions ---
     if (body.startDate) {
       dataToUpdate.startDate = new Date(body.startDate);
     }
@@ -71,61 +70,79 @@ export async function PATCH(
       dataToUpdate.endDate = new Date(body.endDate);
     }
 
-    // ✅ FIX 3: Calculate duration if dates are present
     if (dataToUpdate.startDate && dataToUpdate.endDate) {
-      const diffTime = Math.abs(dataToUpdate.endDate - dataToUpdate.startDate);
+      const diffTime = Math.abs(dataToUpdate.endDate.getTime() - dataToUpdate.startDate.getTime());
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       dataToUpdate.duration = diffDays;
     }
 
-    // ✅ FIX 4: Convert price strings to numbers
-    if (body.priceUSDC) {
+    // --- 2. Top-Level Price/Number Conversions ---
+    if (body.priceUSDC !== undefined) {
       dataToUpdate.priceUSDC = parseFloat(body.priceUSDC);
     }
-    if (body.priceUSDT) {
+    if (body.priceUSDT !== undefined) {
       dataToUpdate.priceUSDT = parseFloat(body.priceUSDT);
     }
-    if (body.depositAmount) {
+    if (body.depositAmount !== undefined) {
       dataToUpdate.depositAmount = parseFloat(body.depositAmount);
     }
 
-    // ✅ FIX 5: Convert number strings to integers
-    if (body.slotsTotal) {
+    if (body.slotsTotal !== undefined) {
       dataToUpdate.slotsTotal = parseInt(body.slotsTotal);
     }
-    if (body.slotsAvailable) {
+    if (body.slotsAvailable !== undefined) {
       dataToUpdate.slotsAvailable = parseInt(body.slotsAvailable);
     }
-    if (body.guestCapacity) {
+    if (body.guestCapacity !== undefined) {
       dataToUpdate.guestCapacity = parseInt(body.guestCapacity);
     }
 
-    // ✅ FIX 6: Ensure arrays and JSON fields are properly formatted
-    if (body.images && !Array.isArray(body.images)) {
-      dataToUpdate.images = [];
-    }
-    if (body.amenities && !Array.isArray(body.amenities)) {
-      dataToUpdate.amenities = [];
-    }
-    if (body.rooms && !Array.isArray(body.rooms)) {
+    // --- 3. CRITICAL ROOM ARRAY CONVERSION ---
+    if (body.rooms && Array.isArray(body.rooms)) {
+      dataToUpdate.rooms = body.rooms.map((room: any) => ({
+        ...room,
+        // Remove temporary client-side IDs if they exist (for new rooms)
+        id: room.id && room.id.length > 20 ? undefined : room.id,
+        // Ensure Room Prices are cleanly parsed as numbers
+        priceUSDC: parseFloat(room.priceUSDC) || 0.01,
+        priceUSDT: parseFloat(room.priceUSDT) || 0.01,
+        capacity: parseInt(room.capacity) || 1,
+        // Ensure nested arrays are safe
+        images: Array.isArray(room.images) ? room.images : [],
+        amenities: Array.isArray(room.amenities) ? room.amenities : [],
+      }));
+    } else if (body.rooms === undefined) {
+      // Don't update rooms if not provided
+      delete dataToUpdate.rooms;
+    } else {
+      // If explicitly set to null or invalid, set to empty array
       dataToUpdate.rooms = [];
     }
-    if (body.tags && !Array.isArray(body.tags)) {
-      dataToUpdate.tags = [];
+
+    // --- 4. Other Array/JSON Field Checks ---
+    if (body.images !== undefined) {
+      dataToUpdate.images = Array.isArray(body.images) ? body.images : [];
     }
-    if (body.highlights && !Array.isArray(body.highlights)) {
-      dataToUpdate.highlights = [];
+    if (body.amenities !== undefined) {
+      dataToUpdate.amenities = Array.isArray(body.amenities) ? body.amenities : [];
     }
-    if (body.rules && !Array.isArray(body.rules)) {
-      dataToUpdate.rules = [];
+    if (body.tags !== undefined) {
+      dataToUpdate.tags = Array.isArray(body.tags) ? body.tags : [];
     }
-    if (body.galleryImages && !Array.isArray(body.galleryImages)) {
-      dataToUpdate.galleryImages = [];
+    if (body.highlights !== undefined) {
+      dataToUpdate.highlights = Array.isArray(body.highlights) ? body.highlights : [];
     }
-    if (body.sponsorIds && !Array.isArray(body.sponsorIds)) {
-      dataToUpdate.sponsorIds = [];
+    if (body.rules !== undefined) {
+      dataToUpdate.rules = Array.isArray(body.rules) ? body.rules : [];
+    }
+    if (body.galleryImages !== undefined) {
+      dataToUpdate.galleryImages = Array.isArray(body.galleryImages) ? body.galleryImages : [];
+    }
+    if (body.sponsorIds !== undefined) {
+      dataToUpdate.sponsorIds = Array.isArray(body.sponsorIds) ? body.sponsorIds : [];
     }
 
+    // --- 5. Update the Stay ---
     const updatedStay = await db.stay.update({
       where: {
         id: id,
@@ -152,29 +169,33 @@ export async function DELETE(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    // ✅ FIX 1: Await params in Next.js 15
     const { id } = await context.params;
 
-    await db.stay.delete({
-      where: {
-        id: id,
-      },
+    // Check if stay exists
+    const stay = await db.stay.findUnique({
+      where: { id },
     });
 
-    return NextResponse.json({ message: 'Stay deleted successfully' });
-  } catch (error) {
-    console.error('[API] Error deleting stay:', error);
-    
-    // Handle specific error if booking is associated
-    if ((error as any).code === 'P2003') {
+    if (!stay) {
       return NextResponse.json(
-        { error: 'Cannot delete stay. It has associated bookings.' },
-        { status: 400 }
+        { error: 'Stay not found' },
+        { status: 404 }
       );
     }
-    
+
+    // Delete the stay
+    await db.stay.delete({
+      where: { id },
+    });
+
+    return NextResponse.json({ 
+      success: true, 
+      message: 'Stay deleted successfully' 
+    });
+  } catch (error) {
+    console.error('[API] Error deleting stay:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: (error as Error).message },
       { status: 500 }
     );
   }

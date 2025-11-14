@@ -1,33 +1,52 @@
-// File: app/api/payments/submit-payment/route.ts
-
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/database';
-import { verifyPayment } from '@/lib/verification';
+import { verifyPayment, checkTransactionUsed } from '@/lib/verification';
 import { BookingStatus } from '@prisma/client';
 
 /**
- * Updated API to submit payment for a booking
+ * Updated API to submit payment for a booking with replay protection
  * POST /api/payments/submit-payment
- * 
- * Body: { bookingId: string, txHash: string, chainId: number }
- * 
- * This is called from the frontend AFTER the user has sent their transaction
+ * * Body: { bookingId: string, txHash: string, chainId: number, paymentToken: string }
+ * * This is called from the frontend AFTER the user has sent their transaction
  */
 export async function POST(request: Request) {
   try {
     // 1. Read the request body
     const body = await request.json();
-    const { bookingId, txHash, chainId } = body;
+    const { bookingId, txHash, chainId, paymentToken } = body;
+
+    console.log('[API] Payment submission received:', { bookingId, txHash, chainId, paymentToken });
 
     // 2. Basic Validation
-    if (!bookingId || !txHash || !chainId) {
+    if (!bookingId || !txHash || !chainId || !paymentToken) {
       return NextResponse.json(
-        { error: 'Missing required fields: bookingId, txHash, chainId' },
+        { error: 'Missing required fields: bookingId, txHash, chainId, paymentToken' },
         { status: 400 }
       );
     }
 
-    // 3. Find the booking in the database
+    // 2.5. Validate txHash format
+    if (!/^0x[a-fA-F0-9]{64}$/.test(txHash)) {
+      return NextResponse.json(
+        { error: 'Invalid transaction hash format' },
+        { status: 400 }
+      );
+    }
+
+    // 3. 🔒 SECURITY: Check if this transaction hash has already been used
+    const isUsed = await checkTransactionUsed(txHash);
+    if (isUsed) {
+      console.warn(`[API] Transaction replay attempt detected: ${txHash}`);
+      return NextResponse.json(
+        { 
+          error: 'This transaction has already been used for another booking',
+          code: 'TRANSACTION_ALREADY_USED'
+        },
+        { status: 409 } // 409 Conflict
+      );
+    }
+
+    // 4. Find the booking in the database
     const booking = await db.booking.findUnique({
       where: { bookingId },
       select: {
@@ -47,7 +66,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // 4. Check if booking is in PENDING status
+    // 5. Check if booking is in PENDING status
     if (booking.status !== BookingStatus.PENDING) {
       return NextResponse.json(
         { 
@@ -57,31 +76,21 @@ export async function POST(request: Request) {
         { status: 409 } // 409 Conflict
       );
     }
-
-    // 5. Check if payment session has expired
-    if (booking.expiresAt && booking.expiresAt < new Date()) {
-      // Auto-update to EXPIRED
-      await db.booking.update({
-        where: { bookingId },
-        data: { status: BookingStatus.EXPIRED },
-      });
-
-      return NextResponse.json(
-        { error: 'Payment session has expired' },
-        { status: 410 } // 410 Gone
-      );
-    }
-
-    // 6. Check if payment details are set
+    
+    // 6. Check if payment details are set (REQUIRED after successful lock-payment call)
     if (!booking.paymentToken || !booking.paymentAmount) {
-      return NextResponse.json(
-        { error: 'Booking does not have payment details configured' },
-        { status: 400 }
-      );
+        console.error('[API] Booking not configured for payment (lock-payment not called or failed).');
+        return NextResponse.json(
+            { error: 'Payment details were not locked. Please retry or contact support.' },
+            { status: 400 }
+        );
     }
+    
+    // NOTE: The token mismatch check is removed here, as the lock-payment API
+    // guarantees that booking.paymentToken matches the token the user intended to pay with.
+    // The verifyPayment function will now strictly check against booking.paymentToken and booking.paymentAmount.
 
     // 7. Save the txHash to the booking immediately
-    // This is good for logging, even before verification is complete
     await db.booking.update({
       where: { bookingId },
       data: {
@@ -100,20 +109,22 @@ export async function POST(request: Request) {
         details: {
           txHash,
           chainId,
-          token: booking.paymentToken,
-          amount: booking.paymentAmount,
+          token: booking.paymentToken, // Use the locked token from the DB
+          amount: booking.paymentAmount, // Use the locked amount from the DB
         },
       },
     });
 
+    console.log('[API] Payment submission saved. Starting background verification...');
+
     // 9. --- "Fire-and-Forget" ---
-    // Call verifyPayment but do NOT 'await' it.
-    // This tells the function to run in the background.
-    verifyPayment(bookingId, txHash, chainId);
+    // Call verifyPayment but do NOT 'await' it. With retries for timing issues.
+    verifyPayment(bookingId, txHash, chainId, 10, 3000).catch((error) => {
+      // Log errors but don't block the response
+      console.error('[API] Background verification error:', error);
+    });
 
     // 10. --- Respond Immediately ---
-    // We send this response back to the frontend right away,
-    // while the verification runs in the background.
     return NextResponse.json({
       success: true,
       bookingId: booking.bookingId,

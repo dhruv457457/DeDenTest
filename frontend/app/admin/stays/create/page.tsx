@@ -13,8 +13,8 @@ const staySchema = z.object({
   location: z.string().min(3, 'Location is required'),
   startDate: z.string().min(1, 'Start date is required'),
   endDate: z.string().min(1, 'End date is required'),
-  priceUSDC: z.string().min(1, 'Price is required'),
-  priceUSDT: z.string().min(1, 'Price is required'),
+  priceUSDC: z.string().min(1, 'Default USDC price is required'),
+  priceUSDT: z.string().min(1, 'Default USDT price is required'),
   slotsTotal: z.string().min(1, 'Slots is required'),
 });
 
@@ -40,11 +40,11 @@ export default function CreateStayPage() {
     const slotsTotal = parseInt(data.slotsTotal, 10);
 
     if (isNaN(priceUSDC) || priceUSDC <= 0) {
-      setApiError('USDC price must be a positive number');
+      setApiError('Default USDC price must be a positive number');
       return;
     }
     if (isNaN(priceUSDT) || priceUSDT <= 0) {
-      setApiError('USDT price must be a positive number');
+      setApiError('Default USDT price must be a positive number');
       return;
     }
     if (isNaN(slotsTotal) || slotsTotal <= 0) {
@@ -74,8 +74,8 @@ export default function CreateStayPage() {
         throw new Error(result.error || 'Failed to create stay');
       }
       
-      alert('Stay created successfully!');
-      router.push('/admin/stays');
+      alert('Stay created successfully! Now add room types with specific prices.');
+      router.push(`/admin/stays/${result.id}`); // Redirect to edit page to add rooms
     } catch (err: any) {
       setApiError(err.message);
     }
@@ -84,6 +84,13 @@ export default function CreateStayPage() {
   return (
     <div style={styles.container}>
       <h1 style={styles.title}>Create New Stay</h1>
+      
+      {/* Important Notice */}
+      <div style={styles.noticeBox}>
+        <strong>📌 Note:</strong> The prices you set here are <strong>default values</strong> that will be suggested when you create room types. 
+        Each room will have its own specific prices that guests will actually pay.
+      </div>
+
       <form onSubmit={handleSubmit(onSubmit)} style={styles.form}>
         <div style={styles.field}>
           <label style={styles.label}>Stay Title</label>
@@ -137,28 +144,43 @@ export default function CreateStayPage() {
           </div>
         </div>
 
-        <div style={styles.fieldGroup}>
-          <div style={styles.field}>
-            <label style={styles.label}>Price (USDC)</label>
-            <input 
-              type="number" 
-              step="0.01"
-              {...register('priceUSDC')} 
-              placeholder="300"
-              style={styles.input}
-            />
-            {errors.priceUSDC && <span style={styles.error}>{errors.priceUSDC.message}</span>}
-          </div>
-          <div style={styles.field}>
-            <label style={styles.label}>Price (USDT)</label>
-            <input 
-              type="number" 
-              step="0.01"
-              {...register('priceUSDT')} 
-              placeholder="300"
-              style={styles.input}
-            />
-            {errors.priceUSDT && <span style={styles.error}>{errors.priceUSDT.message}</span>}
+        {/* Price Section with Clear Labels */}
+        <div style={styles.priceSection}>
+          <h3 style={styles.sectionTitle}>Default Room Prices</h3>
+          <p style={styles.sectionDescription}>
+            These will be used as suggested prices when creating room types. 
+            You can set different prices for each room type later.
+          </p>
+          
+          <div style={styles.fieldGroup}>
+            <div style={styles.field}>
+              <label style={styles.label}>
+                Default USDC Price
+                <span style={styles.labelHint}> (for new rooms)</span>
+              </label>
+              <input 
+                type="number" 
+                step="0.01"
+                {...register('priceUSDC')} 
+                placeholder="300"
+                style={styles.input}
+              />
+              {errors.priceUSDC && <span style={styles.error}>{errors.priceUSDC.message}</span>}
+            </div>
+            <div style={styles.field}>
+              <label style={styles.label}>
+                Default USDT Price
+                <span style={styles.labelHint}> (for new rooms)</span>
+              </label>
+              <input 
+                type="number" 
+                step="0.01"
+                {...register('priceUSDT')} 
+                placeholder="300"
+                style={styles.input}
+              />
+              {errors.priceUSDT && <span style={styles.error}>{errors.priceUSDT.message}</span>}
+            </div>
           </div>
         </div>
 
@@ -171,6 +193,7 @@ export default function CreateStayPage() {
             style={styles.input}
           />
           {errors.slotsTotal && <span style={styles.error}>{errors.slotsTotal.message}</span>}
+          <small style={styles.hint}>Maximum number of guests for this stay</small>
         </div>
 
         {apiError && (
@@ -196,10 +219,20 @@ export default function CreateStayPage() {
               cursor: isSubmitting ? 'not-allowed' : 'pointer',
             }}
           >
-            {isSubmitting ? 'Creating...' : 'Create Stay'}
+            {isSubmitting ? 'Creating...' : 'Create Stay & Add Rooms'}
           </button>
         </div>
       </form>
+
+      {/* Additional Info */}
+      <div style={styles.infoBox}>
+        <h4 style={styles.infoTitle}>What happens next?</h4>
+        <ol style={styles.infoList}>
+          <li>After creating the stay, you'll be redirected to add room types</li>
+          <li>Each room type can have different prices for USDC and USDT</li>
+          <li>Guests will see and pay the specific room prices, not the default stay prices</li>
+        </ol>
+      </div>
     </div>
   );
 }
@@ -212,8 +245,17 @@ const styles = {
   },
   title: {
     fontSize: '2rem',
-    marginBottom: '30px',
+    marginBottom: '20px',
     color: '#111',
+  },
+  noticeBox: {
+    backgroundColor: '#fef3c7',
+    border: '2px solid #fbbf24',
+    borderRadius: '8px',
+    padding: '16px',
+    marginBottom: '30px',
+    fontSize: '0.95rem',
+    color: '#92400e',
   },
   form: {
     display: 'flex',
@@ -239,6 +281,11 @@ const styles = {
     fontSize: '0.95rem',
     color: '#374151',
   },
+  labelHint: {
+    fontWeight: '400' as const,
+    fontSize: '0.85rem',
+    color: '#6b7280',
+  },
   input: {
     padding: '10px 14px',
     fontSize: '1rem',
@@ -263,6 +310,23 @@ const styles = {
     border: '1px solid #fca5a5',
     borderRadius: '8px',
     color: '#dc2626',
+  },
+  priceSection: {
+    backgroundColor: '#f9fafb',
+    padding: '20px',
+    borderRadius: '8px',
+    border: '1px solid #e5e7eb',
+  },
+  sectionTitle: {
+    fontSize: '1.1rem',
+    fontWeight: '600' as const,
+    marginBottom: '8px',
+    color: '#1f2937',
+  },
+  sectionDescription: {
+    fontSize: '0.9rem',
+    color: '#6b7280',
+    marginBottom: '16px',
   },
   buttonGroup: {
     display: 'flex',
@@ -292,5 +356,24 @@ const styles = {
     borderRadius: '8px',
     cursor: 'pointer',
     transition: 'background-color 0.2s',
+  },
+  infoBox: {
+    marginTop: '30px',
+    backgroundColor: '#eff6ff',
+    border: '1px solid #bfdbfe',
+    borderRadius: '8px',
+    padding: '20px',
+  },
+  infoTitle: {
+    fontSize: '1rem',
+    fontWeight: '600' as const,
+    marginBottom: '12px',
+    color: '#1e40af',
+  },
+  infoList: {
+    marginLeft: '20px',
+    fontSize: '0.9rem',
+    color: '#3730a3',
+    lineHeight: '1.8',
   },
 } as const;

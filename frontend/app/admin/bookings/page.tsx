@@ -11,11 +11,16 @@ type Booking = {
   guestEmail: string;
   paymentAmount?: number;
   paymentToken?: string;
+  selectedRoomName?: string;
+  selectedRoomPriceUSDC?: number;
+  selectedRoomPriceUSDT?: number;
   expiresAt?: string;
   confirmedAt?: string;
   createdAt: string;
   stay: {
     title: string;
+    priceUSDC: number;
+    priceUSDT: number;
   };
   user: {
     walletAddress: string;
@@ -72,6 +77,7 @@ export default function AdminDashboard() {
       CONFIRMED: { bg: '#d1fae5', color: '#065f46', label: '✅ Confirmed' },
       CANCELLED: { bg: '#fee2e2', color: '#991b1b', label: '❌ Cancelled' },
       EXPIRED: { bg: '#f3f4f6', color: '#374151', label: '⌛ Expired' },
+      FAILED: { bg: '#fce7f3', color: '#831843', label: '⚠️ Failed' },
     };
 
     const style = statusStyles[status] || { bg: '#f3f4f6', color: '#374151', label: status };
@@ -95,6 +101,25 @@ export default function AdminDashboard() {
     pending: bookings.filter(b => b.status === 'PENDING').length,
     confirmed: bookings.filter(b => b.status === 'CONFIRMED').length,
     total: bookings.length,
+  };
+
+  // Helper function to get display price
+  const getDisplayPrice = (booking: Booking) => {
+    // If payment is already locked (status CONFIRMED or has paymentAmount)
+    if (booking.paymentAmount && booking.paymentToken) {
+      return `$${booking.paymentAmount} ${booking.paymentToken}`;
+    }
+    
+    // Show room prices if available
+    if (booking.selectedRoomPriceUSDC || booking.selectedRoomPriceUSDT) {
+      const prices = [];
+      if (booking.selectedRoomPriceUSDC) prices.push(`$${booking.selectedRoomPriceUSDC} USDC`);
+      if (booking.selectedRoomPriceUSDT) prices.push(`$${booking.selectedRoomPriceUSDT} USDT`);
+      return prices.join(' / ');
+    }
+    
+    // Fall back to stay prices
+    return `$${booking.stay.priceUSDC} USDC / $${booking.stay.priceUSDT} USDT`;
   };
 
   return (
@@ -172,9 +197,9 @@ export default function AdminDashboard() {
               <th style={styles.th}>Stay</th>
               <th style={styles.th}>Guest</th>
               <th style={styles.th}>Email</th>
-              <th style={styles.th}>Wallet</th>
+              <th style={styles.th}>Room</th>
+              <th style={styles.th}>Price</th>
               <th style={styles.th}>Status</th>
-              {activeTab !== "WAITLISTED" && <th style={styles.th}>Amount</th>}
               <th style={styles.th}>Date</th>
               <th style={styles.th}>Action</th>
             </tr>
@@ -215,27 +240,22 @@ export default function AdminDashboard() {
                     </a>
                   </td>
                   <td style={styles.td}>
-                    <code style={styles.walletCode} title={booking.user.walletAddress}>
-                      {booking.user.walletAddress.substring(0, 6)}...
-                      {booking.user.walletAddress.substring(
-                        booking.user.walletAddress.length - 4
-                      )}
-                    </code>
+                    {booking.selectedRoomName ? (
+                      <span style={styles.roomBadge}>
+                        {booking.selectedRoomName}
+                      </span>
+                    ) : (
+                      <span style={{ color: '#999' }}>No preference</span>
+                    )}
+                  </td>
+                  <td style={styles.td}>
+                    <span style={styles.amount}>
+                      {getDisplayPrice(booking)}
+                    </span>
                   </td>
                   <td style={styles.td}>
                     {getStatusBadge(booking.status)}
                   </td>
-                  {activeTab !== "WAITLISTED" && (
-                    <td style={styles.td}>
-                      {booking.paymentAmount ? (
-                        <span style={styles.amount}>
-                          ${booking.paymentAmount} {booking.paymentToken}
-                        </span>
-                      ) : (
-                        <span style={{ color: '#999' }}>—</span>
-                      )}
-                    </td>
-                  )}
                   <td style={styles.td}>
                     <div style={styles.dateText}>
                       {new Date(booking.createdAt).toLocaleDateString()}
@@ -251,13 +271,20 @@ export default function AdminDashboard() {
                         onApproved={handleApproved}
                       />
                     ) : booking.status === 'PENDING' ? (
-                      <a 
-                        href={`/booking/${booking.bookingId}`}
-                        target="_blank"
-                        style={styles.viewLink}
-                      >
-                        View Payment
-                      </a>
+                      <div>
+                        <a 
+                          href={`/booking/${booking.bookingId}`}
+                          target="_blank"
+                          style={styles.viewLink}
+                        >
+                          View Payment
+                        </a>
+                        {booking.expiresAt && new Date(booking.expiresAt) > new Date() && (
+                          <div style={styles.expiryNote}>
+                            Expires: {new Date(booking.expiresAt).toLocaleString()}
+                          </div>
+                        )}
+                      </div>
                     ) : booking.status === 'CONFIRMED' ? (
                       <span style={{ color: '#10b981', fontWeight: '600' }}>
                         ✓ Paid
@@ -271,6 +298,16 @@ export default function AdminDashboard() {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Legend */}
+      <div style={styles.legend}>
+        <p><strong>Note:</strong></p>
+        <ul style={styles.legendList}>
+          <li>Users select their preferred room and see both USDC/USDT prices during application</li>
+          <li>After approval, users choose their payment token (USDC or USDT) when paying</li>
+          <li>The system uses the room-specific price for the chosen token</li>
+        </ul>
       </div>
     </div>
   );
@@ -374,14 +411,13 @@ const styles = {
     fontSize: "0.8rem",
     fontFamily: "monospace",
   },
-  walletCode: {
-    backgroundColor: "#e3f2fd",
+  roomBadge: {
+    backgroundColor: "#e0f2fe",
+    color: "#075985",
     padding: "4px 8px",
     borderRadius: "4px",
-    fontSize: "0.8rem",
-    fontFamily: "monospace",
-    color: "#1976d2",
-    cursor: "help",
+    fontSize: "0.85rem",
+    fontWeight: "500",
   },
   emailLink: {
     color: "#0070f3",
@@ -390,6 +426,7 @@ const styles = {
   amount: {
     fontWeight: "600",
     color: "#059669",
+    fontSize: "0.85rem",
   },
   dateText: {
     fontSize: "0.9rem",
@@ -406,6 +443,11 @@ const styles = {
     fontSize: "0.9rem",
     fontWeight: "500",
   },
+  expiryNote: {
+    fontSize: "0.75rem",
+    color: "#f59e0b",
+    marginTop: "4px",
+  },
   loading: {
     textAlign: "center" as const,
     padding: "40px",
@@ -415,5 +457,17 @@ const styles = {
     textAlign: "center" as const,
     padding: "40px",
     color: "#999",
+  },
+  legend: {
+    marginTop: "20px",
+    padding: "16px",
+    backgroundColor: "#f9fafb",
+    borderRadius: "6px",
+    fontSize: "0.85rem",
+    color: "#4b5563",
+  },
+  legendList: {
+    marginTop: "8px",
+    marginLeft: "20px",
   },
 } as const;

@@ -1,85 +1,98 @@
-"use client"; // This must be a client component
+"use client";
 
 import { WagmiProvider, createConfig, http } from "wagmi";
-import { bscTestnet } from "wagmi/chains";
+import { arbitrum, bsc, base } from "wagmi/chains";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ConnectKitProvider, getDefaultConfig } from "connectkit";
 import React from "react";
-import { SessionProvider } from "next-auth/react"; // <-- Import SessionProvider
+import { SessionProvider } from "next-auth/react";
 
-// 1. Get your environment variables
-const alchemyApiKey = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY_BSC_TESTNET;
+// Get environment variables
+const arbitrumKey = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY_ARBITRUM;
+const bnbKey = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY_BNB;
+const baseKey = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY_BASE;
 const wcProjectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
 
-// 2. Set up a React Query client
-const queryClient = new QueryClient();
+// Create React Query client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60 * 1000, // 1 minute
+      retry: 2,
+    },
+  },
+});
 
-// 3. Create the provider component
 export function Providers({ children }: { children: React.ReactNode }) {
-  
-  // --- Your validation logic ---
-  if (!alchemyApiKey) {
-    console.error("Missing NEXT_PUBLIC_ALCHEMY_API_KEY_BSC_TESTNET env var");
+  // Validation
+  if (!arbitrumKey || !bnbKey || !baseKey) {
+    console.error("Missing RPC API keys");
     return (
-      <html lang="en">
-        <body>
-          <div style={{ padding: '20px', fontFamily: 'Arial', color: 'red' }}>
-            <strong>Build Error:</strong> Missing 
-            <code>NEXT_PUBLIC_ALCHEMY_API_KEY_BSC_TESTNET</code> environment
-            variable. Please check your .env.local file and restart the server.
-          </div>
-        </body>
-      </html>
+      <div style={{ padding: "20px", fontFamily: "Arial", color: "red" }}>
+        <strong>Configuration Error:</strong> Missing RPC API keys. Please check
+        your environment variables.
+      </div>
     );
   }
 
   if (!wcProjectId) {
-    console.error("Missing NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID env var");
+    console.error("Missing WalletConnect Project ID");
     return (
-      <html lang="en">
-        <body>
-          <div style={{ padding: '20px', fontFamily: 'Arial', color: 'red' }}>
-            <strong>Build Error:</strong> Missing 
-            <code>NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID</code> environment
-            variable. Please get one from cloud.walletconnect.com and add it to .env.local.
-          </div>
-        </body>
-      </html>
+      <div style={{ padding: "20px", fontFamily: "Arial", color: "red" }}>
+        <strong>Configuration Error:</strong> Missing WalletConnect Project ID.
+        Get one from cloud.walletconnect.com
+      </div>
     );
   }
-  // --- END OF VALIDATION ---
 
+  // Get the app URL from environment or use defaults
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 
+    (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
+  
+  const appIcon = process.env.NEXT_PUBLIC_APP_ICON || 
+    'https://res.cloudinary.com/dfa0ptxxk/image/upload/v1763107951/DenDen_no_bg_x6absy.png';
 
-  // We use React.useState to create the config only once.
+  // Create config only once
   const [config] = React.useState(() =>
     createConfig(
       getDefaultConfig({
-        // Your dApp's name
-        appName: "Payment Gateway",
-        
-        // Your transports config
+        appName: "Decentralized Den",
+        appDescription: "Secure crypto payments for coliving stays",
+        appUrl: appUrl,
+        appIcon: appIcon,
+
+        // Configure all supported chains
+        chains: [arbitrum, bsc, base],
+
+        // RPC transports
         transports: {
-          [bscTestnet.id]: http(
-            `https://bnb-testnet.g.alchemy.com/v2/${alchemyApiKey}`
+          [arbitrum.id]: http(
+            `https://arb-mainnet.g.alchemy.com/v2/${arbitrumKey}`
+          ),
+          [bsc.id]: http(
+            `https://bnb-mainnet.g.alchemy.com/v2/${bnbKey}`
+          ),
+          [base.id]: http(
+            `https://base-mainnet.g.alchemy.com/v2/${baseKey}`
           ),
         },
 
-        // We only support BSC Testnet
-        chains: [bscTestnet],
-        
-        // WalletConnect Project ID
         walletConnectProjectId: wcProjectId,
       })
     )
   );
 
-
   return (
-    // Wrap your providers with SessionProvider
-    <SessionProvider>
+    <SessionProvider refetchInterval={5 * 60}>
       <WagmiProvider config={config}>
         <QueryClientProvider client={queryClient}>
-          <ConnectKitProvider>
+          <ConnectKitProvider
+            mode="dark"
+            options={{
+              enforceSupportedChains: true,
+              embedGoogleFonts: true,
+            }}
+          >
             {children}
           </ConnectKitProvider>
         </QueryClientProvider>

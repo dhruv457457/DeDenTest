@@ -4,701 +4,665 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
+import { Plus, X, Trash2, Edit, Check, DollarSign, Users } from 'lucide-react';
 
-type Stay = {
-  id: string;
-  stayId: string;
-  title: string;
-  slug: string;
-  location: string;
-  description: string;
-  startDate: string;
-  endDate: string;
-  priceUSDC: number;
-  priceUSDT: number;
-  slotsTotal: number;
-  slotsAvailable: number;
-  isPublished: boolean;
-  isFeatured: boolean;
-  allowWaitlist: boolean;
-  images: string[];
-  amenities: string[];
-  highlights: string[];
-  rooms: Room[];
+// ============================================
+// 1. UPDATED ROOM TYPE DEFINITION (Dual Price)
+// ============================================
+type Room = {
+    id?: string;
+    name: string;
+    description: string;
+    capacity: number;
+    priceUSDC: number; 
+    priceUSDT: number; 
+    images: string[];
+    amenities: string[];
 };
 
-type Room = {
-  id?: string;
-  name: string;
-  description: string;
-  capacity: number;
-  price: number;
-  images: string[];
-  amenities: string[];
+type Stay = {
+    id: string;
+    stayId: string;
+    title: string;
+    slug: string;
+    location: string;
+    description: string;
+    startDate: string;
+    endDate: string;
+    priceUSDC: number;
+    priceUSDT: number;
+    slotsTotal: number;
+    slotsAvailable: number;
+    isPublished: boolean;
+    isFeatured: boolean;
+    allowWaitlist: boolean;
+    images: string[];
+    amenities: string[];
+    highlights: string[];
+    rooms: Room[];
 };
 
 export default function EditStayPage() {
-  const params = useParams();
-  const router = useRouter();
-  const stayId = params.id as string;
-
-  const [stay, setStay] = useState<Stay | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'basic' | 'images' | 'rooms' | 'amenities'>('basic');
-  
-  // Image & Room management state
-  const [newImage, setNewImage] = useState('');
-  const [newAmenity, setNewAmenity] = useState('');
-  const [newHighlight, setNewHighlight] = useState('');
-  const [editingRoom, setEditingRoom] = useState<Room | null>(null);
-
-  const { register, handleSubmit, reset } = useForm();
-
-  useEffect(() => {
-    fetchStay();
-  }, [stayId]);
-
-  const fetchStay = async () => {
-    try {
-      const res = await fetch(`/api/admin/stays/${stayId}`);
-      if (!res.ok) throw new Error('Failed to fetch stay');
-      const data = await res.json();
-      
-      // Initialize arrays if they don't exist
-      data.images = data.images || [];
-      data.amenities = data.amenities || [];
-      data.rooms = data.rooms || [];
-      data.highlights = data.highlights || [];
-      
-      setStay(data);
-      reset(data);
-    } catch (err) {
-      alert('Error loading stay: ' + (err as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const onSubmit = async (data: any) => {
-    setSaving(true);
-    try {
-      const res = await fetch(`/api/admin/stays/${stayId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...data,
-          images: stay?.images || [],
-          amenities: stay?.amenities || [],
-          rooms: stay?.rooms || [],
-          highlights: stay?.highlights || [],
-        }),
-      });
-
-      if (!res.ok) throw new Error('Failed to update stay');
-      
-      alert('Stay updated successfully!');
-      router.push('/admin/stays');
-    } catch (err) {
-      alert('Error updating stay: ' + (err as Error).message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Image management
-  const addImage = () => {
-    if (!newImage.trim() || !stay) return;
-    setStay({ ...stay, images: [...stay.images, newImage.trim()] });
-    setNewImage('');
-  };
-
-  const removeImage = (index: number) => {
-    if (!stay) return;
-    const updated = stay.images.filter((_, i) => i !== index);
-    setStay({ ...stay, images: updated });
-  };
-
-  // Amenity management
-  const addAmenity = () => {
-    if (!newAmenity.trim() || !stay) return;
-    setStay({ ...stay, amenities: [...stay.amenities, newAmenity.trim()] });
-    setNewAmenity('');
-  };
-
-  const removeAmenity = (index: number) => {
-    if (!stay) return;
-    const updated = stay.amenities.filter((_, i) => i !== index);
-    setStay({ ...stay, amenities: updated });
-  };
-
-  // Highlight management (What to Expect)
-  const addHighlight = () => {
-    if (!newHighlight.trim() || !stay) return;
-    const highlights = stay.highlights || [];
-    setStay({ ...stay, highlights: [...highlights, newHighlight.trim()] });
-    setNewHighlight('');
-  };
-
-  const removeHighlight = (index: number) => {
-    if (!stay) return;
-    const highlights = stay.highlights || [];
-    const updated = highlights.filter((_, i) => i !== index);
-    setStay({ ...stay, highlights: updated });
-  };
-
-  // Room management
-  const addRoom = () => {
-    setEditingRoom({
-      name: '',
-      description: '',
-      capacity: 2,
-      price: stay?.priceUSDC || 300,
-      images: [],
-      amenities: [],
-    });
-  };
-
-  const saveRoom = (room: Room) => {
-    if (!stay) return;
+    const params = useParams();
+    const stayId = params.id as string | undefined; 
+    const router = useRouter();
     
-    if (room.id) {
-      // Update existing room
-      const updated = stay.rooms.map(r => r.id === room.id ? room : r);
-      setStay({ ...stay, rooms: updated });
-    } else {
-      // Add new room
-      const newRoom = { ...room, id: Date.now().toString() };
-      setStay({ ...stay, rooms: [...stay.rooms, newRoom] });
-    }
+    const [stay, setStay] = useState<Stay | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [activeTab, setActiveTab] = useState<'basic' | 'images' | 'rooms' | 'amenities'>('basic');
     
-    setEditingRoom(null);
-  };
+    // Image & Room management state
+    const [newImage, setNewImage] = useState('');
+    const [newAmenity, setNewAmenity] = useState('');
+    const [newHighlight, setNewHighlight] = useState('');
+    const [editingRoom, setEditingRoom] = useState<Room | null>(null);
 
-  const deleteRoom = (roomId: string) => {
-    if (!stay || !confirm('Delete this room?')) return;
-    const updated = stay.rooms.filter(r => r.id !== roomId);
-    setStay({ ...stay, rooms: updated });
-  };
+    const { register, handleSubmit, reset } = useForm();
 
-  if (loading) return <div style={styles.container}>Loading...</div>;
-  if (!stay) return <div style={styles.container}>Stay not found</div>;
+    useEffect(() => {
+        if (stayId && typeof stayId === 'string' && stayId.length > 0) {
+            fetchStay();
+        } else {
+            setLoading(false);
+        }
+    }, [stayId]);
 
-  return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <h1 style={styles.title}>Edit Stay: {stay.title}</h1>
-        <button onClick={() => router.push('/admin/stays')} style={styles.backButton}>
-          ← Back to Stays
-        </button>
-      </div>
-
-      {/* Tabs */}
-      <div style={styles.tabs}>
-        {(['basic', 'images', 'rooms', 'amenities'] as const).map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            style={{
-              ...styles.tab,
-              ...(activeTab === tab ? styles.activeTab : {}),
-            }}
-          >
-            {tab.charAt(0).toUpperCase() + tab.slice(1)}
-          </button>
-        ))}
-      </div>
-
-      <form onSubmit={handleSubmit(onSubmit)}>
-        {/* Basic Info Tab */}
-        {activeTab === 'basic' && (
-          <div style={styles.section}>
-            <h3 style={styles.sectionTitle}>Basic Information</h3>
+    const fetchStay = async () => {
+        try {
+            const res = await fetch(`/api/admin/stays/${stayId}`);
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.error || `Failed to fetch stay (Status: ${res.status})`);
+            }
+            const data = await res.json();
             
-            <div style={styles.field}>
-              <label style={styles.label}>Title</label>
-              <input {...register('title')} style={styles.input} />
-            </div>
-
-            <div style={styles.fieldRow}>
-              <div style={styles.field}>
-                <label style={styles.label}>Slug</label>
-                <input {...register('slug')} style={styles.input} />
-              </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Location</label>
-                <input {...register('location')} style={styles.input} />
-              </div>
-            </div>
-
-            <div style={styles.field}>
-              <label style={styles.label}>Description</label>
-              <textarea {...register('description')} rows={5} style={styles.textarea} />
-            </div>
-
-            <div style={styles.fieldRow}>
-              <div style={styles.field}>
-                <label style={styles.label}>Start Date</label>
-                <input type="date" {...register('startDate')} style={styles.input} />
-              </div>
-              <div style={styles.field}>
-                <label style={styles.label}>End Date</label>
-                <input type="date" {...register('endDate')} style={styles.input} />
-              </div>
-            </div>
-
-            <div style={styles.fieldRow}>
-              <div style={styles.field}>
-                <label style={styles.label}>Price USDC</label>
-                <input type="number" {...register('priceUSDC')} style={styles.input} />
-              </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Price USDT</label>
-                <input type="number" {...register('priceUSDT')} style={styles.input} />
-              </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Total Slots</label>
-                <input type="number" {...register('slotsTotal')} style={styles.input} />
-              </div>
-            </div>
-
-            <div style={styles.checkboxGroup}>
-              <label style={styles.checkboxLabel}>
-                <input type="checkbox" {...register('isPublished')} />
-                Published
-              </label>
-              <label style={styles.checkboxLabel}>
-                <input type="checkbox" {...register('isFeatured')} />
-                Featured
-              </label>
-              <label style={styles.checkboxLabel}>
-                <input type="checkbox" {...register('allowWaitlist')} />
-                Allow Applications
-              </label>
-            </div>
-          </div>
-        )}
-
-        {/* Images Tab */}
-        {activeTab === 'images' && (
-          <div style={styles.section}>
-            <h3 style={styles.sectionTitle}>Villa Images</h3>
+            data.images = data.images || [];
+            data.amenities = data.amenities || [];
+            data.rooms = data.rooms || [];
+            data.highlights = data.highlights || [];
             
-            <div style={styles.addImageSection}>
-              <input
-                type="text"
-                value={newImage}
-                onChange={(e) => setNewImage(e.target.value)}
-                placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
-                style={styles.input}
-              />
-              <button type="button" onClick={addImage} style={styles.addButton}>
-                Add Image
-              </button>
+            setStay(data);
+            reset(data);
+        } catch (err) {
+            alert('Error loading stay: ' + (err as Error).message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const onSubmit = async (data: any) => {
+        setSaving(true);
+        try {
+            const res = await fetch(`/api/admin/stays/${stayId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ...data,
+                    images: stay?.images || [],
+                    amenities: stay?.amenities || [],
+                    rooms: stay?.rooms || [],
+                    highlights: stay?.highlights || [],
+                }),
+            });
+
+            if (!res.ok) throw new Error('Failed to update stay');
+            
+            alert('Stay updated successfully!');
+            router.push('/admin/stays');
+        } catch (err) {
+            alert('Error updating stay: ' + (err as Error).message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    // Image, Amenity, Highlight Management
+    const addImage = () => {
+        if (!newImage.trim() || !stay) return;
+        setStay({ ...stay, images: [...stay.images, newImage.trim()] });
+        setNewImage('');
+    };
+    const removeImage = (index: number) => {
+        if (!stay) return;
+        const updated = stay.images.filter((_, i) => i !== index);
+        setStay({ ...stay, images: updated });
+    };
+    const addAmenity = () => {
+        if (!newAmenity.trim() || !stay) return;
+        setStay({ ...stay, amenities: [...stay.amenities, newAmenity.trim()] });
+        setNewAmenity('');
+    };
+    const removeAmenity = (index: number) => {
+        if (!stay) return;
+        const updated = stay.amenities.filter((_, i) => i !== index);
+        setStay({ ...stay, amenities: updated });
+    };
+    const addHighlight = () => {
+        if (!newHighlight.trim() || !stay) return;
+        const highlights = stay.highlights || [];
+        setStay({ ...stay, highlights: [...highlights, newHighlight.trim()] });
+        setNewHighlight('');
+    };
+    const removeHighlight = (index: number) => {
+        if (!stay) return;
+        const highlights = stay.highlights || [];
+        const updated = highlights.filter((_, i) => i !== index);
+        setStay({ ...stay, highlights: updated });
+    };
+
+    // Room Management
+    const addRoom = () => {
+        setEditingRoom({
+            name: '',
+            description: '',
+            capacity: 2,
+            priceUSDC: stay?.priceUSDC || 300, 
+            priceUSDT: stay?.priceUSDT || 300, 
+            images: [],
+            amenities: [],
+        });
+    };
+
+    const saveRoom = (room: Room) => {
+        if (!stay) return;
+        
+        if (room.id) {
+            const updated = stay.rooms.map(r => r.id === room.id ? room : r);
+            setStay({ ...stay, rooms: updated });
+        } else {
+            const newRoom = { ...room, id: Date.now().toString() };
+            setStay({ ...stay, rooms: [...stay.rooms, newRoom] });
+        }
+        
+        setEditingRoom(null);
+    };
+
+    const deleteRoom = (roomId: string) => {
+        if (!stay || !confirm('Are you sure you want to delete this room type?')) return;
+        const updated = stay.rooms.filter(r => r.id !== roomId);
+        setStay({ ...stay, rooms: updated });
+    };
+
+    if (!stayId || loading) return <div className="max-w-7xl mx-auto p-6 text-xl">Loading...</div>;
+    if (!stay) return <div className="max-w-7xl mx-auto p-6 text-xl text-red-600">Stay not found</div>;
+
+    return (
+        <div className="max-w-7xl mx-auto p-6">
+            <div className="flex justify-between items-center mb-8">
+                <h1 className="text-3xl font-bold text-gray-900">Edit Stay: {stay.title}</h1>
+                <button 
+                    onClick={() => router.push('/admin/stays')} 
+                    className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition duration-150"
+                >
+                    ← Back to Stays
+                </button>
             </div>
 
-            <div style={styles.imageGrid}>
-              {stay.images.map((img, i) => (
-                <div key={i} style={styles.imageCard}>
-                  <div style={styles.imagePreview}>
-                    <img src={img} alt={`Villa ${i + 1}`} style={styles.image} />
-                  </div>
-                  <div style={styles.imageUrl}>{img}</div>
-                  <button
-                    type="button"
-                    onClick={() => removeImage(i)}
-                    style={styles.removeButton}
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            {stay.images.length === 0 && (
-              <div style={styles.emptyState}>
-                No images yet. Add some villa photos!
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Rooms Tab */}
-        {activeTab === 'rooms' && (
-          <div style={styles.section}>
-            <div style={styles.sectionHeader}>
-              <h3 style={styles.sectionTitle}>Room Types</h3>
-              <button type="button" onClick={addRoom} style={styles.addButton}>
-                + Add Room
-              </button>
-            </div>
-
-            <div style={styles.roomsList}>
-              {stay.rooms.map(room => (
-                <div key={room.id} style={styles.roomCard}>
-                  <h4>{room.name}</h4>
-                  <p>{room.description}</p>
-                  <div style={styles.roomMeta}>
-                    <span>👥 {room.capacity} people</span>
-                    <span>${room.price} USDC</span>
-                  </div>
-                  <div style={styles.roomActions}>
+            {/* Tabs */}
+            <div className="flex gap-2 mb-8 border-b-2 border-gray-200">
+                {(['basic', 'images', 'rooms', 'amenities'] as const).map(tab => (
                     <button
-                      type="button"
-                      onClick={() => setEditingRoom(room)}
-                      style={styles.editButton}
+                        key={tab}
+                        onClick={() => setActiveTab(tab)}
+                        className={`px-6 py-3 text-lg font-medium border-b-4 transition duration-150 
+                            ${activeTab === tab 
+                                ? 'border-blue-600 text-blue-700 font-semibold' 
+                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                            }`}
                     >
-                      Edit
+                        {tab.charAt(0).toUpperCase() + tab.slice(1)}
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => room.id && deleteRoom(room.id)}
-                      style={styles.deleteButton}
+                ))}
+            </div>
+
+            <form onSubmit={handleSubmit(onSubmit)}>
+                {/* Basic Info Tab */}
+                {activeTab === 'basic' && (
+                    <div className="bg-white p-6 rounded-xl shadow-lg mb-6 space-y-5">
+                        <h3 className="text-2xl font-bold text-gray-800 border-b pb-3 mb-4">Basic Information</h3>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="md:col-span-3">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                                <input {...register('title')} className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Slug</label>
+                                <input {...register('slug')} className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                                <input {...register('location')} className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Total Slots</label>
+                                <input type="number" {...register('slotsTotal')} className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" />
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                            <textarea {...register('description')} rows={5} className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 font-sans" />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                                <input type="date" {...register('startDate')} className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                                <input type="date" {...register('endDate')} className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Price USDC (Stay Default)</label>
+                                <input type="number" {...register('priceUSDC')} className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Price USDT (Stay Default)</label>
+                                <input type="number" {...register('priceUSDT')} className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" />
+                            </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-6 pt-4 border-t border-gray-200">
+                            <label className="flex items-center gap-2 text-gray-700 text-sm font-medium">
+                                <input type="checkbox" {...register('isPublished')} className="h-4 w-4 text-blue-600 border-gray-300 rounded" />
+                                Published
+                            </label>
+                            <label className="flex items-center gap-2 text-gray-700 text-sm font-medium">
+                                <input type="checkbox" {...register('isFeatured')} className="h-4 w-4 text-blue-600 border-gray-300 rounded" />
+                                Featured
+                            </label>
+                            <label className="flex items-center gap-2 text-gray-700 text-sm font-medium">
+                                <input type="checkbox" {...register('allowWaitlist')} className="h-4 w-4 text-blue-600 border-gray-300 rounded" />
+                                Allow Applications
+                            </label>
+                        </div>
+                    </div>
+                )}
+
+                {/* Images Tab */}
+                {activeTab === 'images' && (
+                    <div className="bg-white p-6 rounded-xl shadow-lg mb-6 space-y-5">
+                        <h3 className="text-2xl font-bold text-gray-800 border-b pb-3 mb-4">Stay Images</h3>
+                        
+                        <div className="flex gap-3">
+                            <input
+                                type="text"
+                                value={newImage}
+                                onChange={(e) => setNewImage(e.target.value)}
+                                placeholder="Enter image URL"
+                                className="flex-grow p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                            />
+                            <button type="button" onClick={addImage} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-150">
+                                <Plus size={20} />
+                            </button>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                            {stay.images.map((img, i) => (
+                                <div key={i} className="relative group">
+                                    <img src={img} alt="" className="w-full h-32 object-cover rounded-lg" />
+                                    <button
+                                        type="button"
+                                        onClick={() => removeImage(i)}
+                                        className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition"
+                                    >
+                                        <X size={16} />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Rooms Tab */}
+                {activeTab === 'rooms' && (
+                    <div className="bg-white p-6 rounded-xl shadow-lg mb-6 space-y-5">
+                        <div className="flex justify-between items-center border-b pb-3 mb-4">
+                            <h3 className="text-2xl font-bold text-gray-800">Room Types</h3>
+                            <button type="button" onClick={addRoom} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-150 flex items-center gap-2">
+                                <Plus size={20} />
+                                Add Room Type
+                            </button>
+                        </div>
+                        
+                        <div className="space-y-4">
+                            {stay.rooms.map((room) => (
+                                <div key={room.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
+                                    <div className="flex justify-between items-start">
+                                        <div className="flex-grow">
+                                            <h4 className="text-lg font-semibold text-gray-900">{room.name}</h4>
+                                            <p className="text-sm text-gray-600 mt-1">{room.description}</p>
+                                            <div className="flex gap-4 mt-3 text-sm">
+                                                <span className="flex items-center gap-1 text-gray-700">
+                                                    <Users size={16} />
+                                                    Capacity: {room.capacity}
+                                                </span>
+                                                <span className="flex items-center gap-1 text-gray-700">
+                                                    <DollarSign size={16} />
+                                                    USDC: ${room.priceUSDC}
+                                                </span>
+                                                <span className="flex items-center gap-1 text-gray-700">
+                                                    <DollarSign size={16} />
+                                                    USDT: ${room.priceUSDT}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => setEditingRoom(room)}
+                                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                                            >
+                                                <Edit size={18} />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => room.id && deleteRoom(room.id)}
+                                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+                                            >
+                                                <Trash2 size={18} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Amenities Tab */}
+                {activeTab === 'amenities' && (
+                    <div className="bg-white p-6 rounded-xl shadow-lg mb-6 space-y-5">
+                        <h3 className="text-2xl font-bold text-gray-800 border-b pb-3 mb-4">Amenities & Highlights</h3>
+                        
+                        {/* Amenities */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Stay Amenities</label>
+                            <div className="flex gap-3 mb-4">
+                                <input
+                                    type="text"
+                                    value={newAmenity}
+                                    onChange={(e) => setNewAmenity(e.target.value)}
+                                    placeholder="e.g., WiFi, Pool, Gym"
+                                    className="flex-grow p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                />
+                                <button type="button" onClick={addAmenity} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-150">
+                                    <Plus size={20} />
+                                </button>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                {stay.amenities.map((amenity, i) => (
+                                    <div key={i} className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm flex items-center gap-2">
+                                        {amenity}
+                                        <button type="button" onClick={() => removeAmenity(i)} className="text-blue-800 hover:text-blue-900">
+                                            <X size={14} />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Highlights */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Highlights</label>
+                            <div className="flex gap-3 mb-4">
+                                <input
+                                    type="text"
+                                    value={newHighlight}
+                                    onChange={(e) => setNewHighlight(e.target.value)}
+                                    placeholder="e.g., Beach Access, Mountain View"
+                                    className="flex-grow p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                />
+                                <button type="button" onClick={addHighlight} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-150">
+                                    <Plus size={20} />
+                                </button>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                {(stay.highlights || []).map((highlight, i) => (
+                                    <div key={i} className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm flex items-center gap-2">
+                                        {highlight}
+                                        <button type="button" onClick={() => removeHighlight(i)} className="text-green-800 hover:text-green-900">
+                                            <X size={14} />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Save Button */}
+                <div className="mt-8 flex justify-end">
+                    <button type="submit" disabled={saving} className={`px-8 py-3 text-xl font-semibold rounded-lg transition duration-200 shadow-xl 
+                        ${saving 
+                            ? 'bg-gray-400 text-gray-700 cursor-not-allowed' 
+                            : 'bg-green-600 text-white hover:bg-green-700'
+                        }`}
                     >
-                      Delete
+                        {saving ? 'Saving...' : 'Save Changes'}
                     </button>
-                  </div>
                 </div>
-              ))}
-            </div>
+            </form>
 
-            {stay.rooms.length === 0 && (
-              <div style={styles.emptyState}>
-                No rooms yet. Add room types for your stay!
-              </div>
+            {/* Room Editor Modal */}
+            {editingRoom && (
+                <RoomEditorModal
+                    room={editingRoom}
+                    onSave={saveRoom}
+                    onCancel={() => setEditingRoom(null)}
+                />
             )}
-          </div>
-        )}
-
-        {/* Amenities Tab */}
-        {activeTab === 'amenities' && (
-          <div style={styles.section}>
-            {/* What's Included Section */}
-            <h3 style={styles.sectionTitle}>What's Included</h3>
-            <p style={{ color: '#666', marginBottom: '20px' }}>Add amenities and services included in the stay</p>
-            
-            <div style={styles.addImageSection}>
-              <input
-                type="text"
-                value={newAmenity}
-                onChange={(e) => setNewAmenity(e.target.value)}
-                placeholder="e.g., High-speed WiFi, Swimming Pool, Daily Meals"
-                style={styles.input}
-              />
-              <button type="button" onClick={addAmenity} style={styles.addButton}>
-                Add Amenity
-              </button>
-            </div>
-
-            <div style={styles.amenitiesList}>
-              {stay.amenities.map((amenity, i) => (
-                <div key={i} style={styles.amenityTag}>
-                  {amenity}
-                  <button
-                    type="button"
-                    onClick={() => removeAmenity(i)}
-                    style={styles.removeTagButton}
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            {stay.amenities.length === 0 && (
-              <div style={styles.emptyState}>
-                No amenities yet. Add what's included!
-              </div>
-            )}
-
-            {/* What to Expect Section */}
-            <h3 style={{ ...styles.sectionTitle, marginTop: '60px' }}>What to Expect</h3>
-            <p style={{ color: '#666', marginBottom: '20px' }}>Add highlights of the experience and what guests can expect</p>
-            
-            <div style={styles.addImageSection}>
-              <input
-                type="text"
-                value={newHighlight}
-                onChange={(e) => setNewHighlight(e.target.value)}
-                placeholder="e.g., Meet 20-30 builders, Daily co-working sessions"
-                style={styles.input}
-              />
-              <button type="button" onClick={addHighlight} style={styles.addButton}>
-                Add Highlight
-              </button>
-            </div>
-
-            <div style={styles.amenitiesList}>
-              {(stay.highlights || []).map((highlight, i) => (
-                <div key={i} style={styles.amenityTag}>
-                  {highlight}
-                  <button
-                    type="button"
-                    onClick={() => removeHighlight(i)}
-                    style={styles.removeTagButton}
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            {(!stay.highlights || stay.highlights.length === 0) && (
-              <div style={styles.emptyState}>
-                No highlights yet. Add what guests can expect!
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Save Button */}
-        <div style={styles.footer}>
-          <button type="submit" disabled={saving} style={styles.saveButton}>
-            {saving ? 'Saving...' : 'Save Changes'}
-          </button>
         </div>
-      </form>
-
-      {/* Room Editor Modal */}
-      {editingRoom && (
-        <RoomEditorModal
-          room={editingRoom}
-          onSave={saveRoom}
-          onCancel={() => setEditingRoom(null)}
-        />
-      )}
-    </div>
-  );
+    );
 }
 
 // Room Editor Modal Component
 function RoomEditorModal({
-  room,
-  onSave,
-  onCancel,
+    room,
+    onSave,
+    onCancel,
 }: {
-  room: Room;
-  onSave: (room: Room) => void;
-  onCancel: () => void;
+    room: Room;
+    onSave: (room: Room) => void;
+    onCancel: () => void;
 }) {
-  const [editedRoom, setEditedRoom] = useState(room);
-  const [newRoomImage, setNewRoomImage] = useState('');
-  const [newRoomAmenity, setNewRoomAmenity] = useState('');
-
-  const addRoomImage = () => {
-    if (!newRoomImage.trim()) return;
-    setEditedRoom({
-      ...editedRoom,
-      images: [...(editedRoom.images || []), newRoomImage.trim()]
+    const [editedRoom, setEditedRoom] = useState<Room>({
+        ...room,
+        priceUSDC: room.priceUSDC || (room as any).price || 0,
+        priceUSDT: room.priceUSDT || (room as any).price || 0,
     });
-    setNewRoomImage('');
-  };
+    const [newRoomImage, setNewRoomImage] = useState('');
+    const [newRoomAmenity, setNewRoomAmenity] = useState('');
 
-  const removeRoomImage = (index: number) => {
-    setEditedRoom({
-      ...editedRoom,
-      images: (editedRoom.images || []).filter((_, i) => i !== index)
-    });
-  };
+    const addRoomImage = () => {
+        if (!newRoomImage.trim()) return;
+        setEditedRoom({
+            ...editedRoom,
+            images: [...(editedRoom.images || []), newRoomImage.trim()]
+        });
+        setNewRoomImage('');
+    };
 
-  const addRoomAmenity = () => {
-    if (!newRoomAmenity.trim()) return;
-    setEditedRoom({
-      ...editedRoom,
-      amenities: [...(editedRoom.amenities || []), newRoomAmenity.trim()]
-    });
-    setNewRoomAmenity('');
-  };
+    const removeRoomImage = (index: number) => {
+        setEditedRoom({
+            ...editedRoom,
+            images: (editedRoom.images || []).filter((_, i) => i !== index)
+        });
+    };
 
-  const removeRoomAmenity = (index: number) => {
-    setEditedRoom({
-      ...editedRoom,
-      amenities: (editedRoom.amenities || []).filter((_, i) => i !== index)
-    });
-  };
+    const addRoomAmenity = () => {
+        if (!newRoomAmenity.trim()) return;
+        setEditedRoom({
+            ...editedRoom,
+            amenities: [...(editedRoom.amenities || []), newRoomAmenity.trim()]
+        });
+        setNewRoomAmenity('');
+    };
 
-  return (
-    <div style={modalStyles.overlay}>
-      <div style={modalStyles.modal}>
-        <h3>Edit Room</h3>
+    const removeRoomAmenity = (index: number) => {
+        setEditedRoom({
+            ...editedRoom,
+            amenities: (editedRoom.amenities || []).filter((_, i) => i !== index)
+        });
+    };
+
+    const handleSave = () => {
+        const finalRoom: Room = {
+            ...editedRoom,
+            priceUSDC: parseFloat(parseFloat(editedRoom.priceUSDC.toString()).toFixed(2)) || 0.01,
+            priceUSDT: parseFloat(parseFloat(editedRoom.priceUSDT.toString()).toFixed(2)) || 0.01,
+            capacity: parseInt(editedRoom.capacity.toString()) || 1,
+        };
         
-        <div style={styles.field}>
-          <label style={styles.label}>Room Name</label>
-          <input
-            value={editedRoom.name}
-            onChange={(e) => setEditedRoom({ ...editedRoom, name: e.target.value })}
-            style={styles.input}
-            placeholder="e.g., Shared Bedroom"
-          />
-        </div>
+        if (!finalRoom.name || finalRoom.name.length < 3) {
+            alert("Room Name is required.");
+            return;
+        }
 
-        <div style={styles.field}>
-          <label style={styles.label}>Description</label>
-          <textarea
-            value={editedRoom.description}
-            onChange={(e) => setEditedRoom({ ...editedRoom, description: e.target.value })}
-            style={styles.textarea}
-            rows={3}
-            placeholder="Describe the room..."
-          />
-        </div>
+        onSave(finalRoom);
+    };
 
-        <div style={styles.fieldRow}>
-          <div style={styles.field}>
-            <label style={styles.label}>Capacity</label>
-            <input
-              type="number"
-              value={editedRoom.capacity}
-              onChange={(e) => setEditedRoom({ ...editedRoom, capacity: parseInt(e.target.value) })}
-              style={styles.input}
-            />
-          </div>
-          <div style={styles.field}>
-            <label style={styles.label}>Price (USDC)</label>
-            <input
-              type="number"
-              value={editedRoom.price}
-              onChange={(e) => setEditedRoom({ ...editedRoom, price: parseFloat(e.target.value) })}
-              style={styles.input}
-            />
-          </div>
-        </div>
+    return (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+            <div className="bg-white p-6 rounded-xl shadow-2xl max-w-2xl w-full my-8 space-y-6">
+                <h3 className="text-2xl font-bold border-b pb-3">Edit Room: {editedRoom.name || 'New Room'}</h3>
+                
+                {/* Room Name */}
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Room Name</label>
+                    <input
+                        value={editedRoom.name}
+                        onChange={(e) => setEditedRoom({ ...editedRoom, name: e.target.value })}
+                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="e.g., Shared Bedroom"
+                    />
+                </div>
 
-        {/* Room Images */}
-        <div style={styles.field}>
-          <label style={styles.label}>Room Images</label>
-          <div style={styles.addImageSection}>
-            <input
-              type="text"
-              value={newRoomImage}
-              onChange={(e) => setNewRoomImage(e.target.value)}
-              placeholder="Enter image URL"
-              style={styles.input}
-            />
-            <button type="button" onClick={addRoomImage} style={styles.addButton}>
-              Add
-            </button>
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '10px' }}>
-            {(editedRoom.images || []).map((img, i) => (
-              <div key={i} style={{ position: 'relative', width: '80px', height: '80px' }}>
-                <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }} />
-                <button
-                  type="button"
-                  onClick={() => removeRoomImage(i)}
-                  style={{
-                    position: 'absolute',
-                    top: '-5px',
-                    right: '-5px',
-                    backgroundColor: '#ef4444',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '50%',
-                    width: '20px',
-                    height: '20px',
-                    fontSize: '12px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
+                {/* Description */}
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                    <textarea
+                        value={editedRoom.description}
+                        onChange={(e) => setEditedRoom({ ...editedRoom, description: e.target.value })}
+                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 font-sans"
+                        rows={3}
+                        placeholder="Describe the room..."
+                    />
+                </div>
 
-        {/* Room Amenities */}
-        <div style={styles.field}>
-          <label style={styles.label}>Room Amenities</label>
-          <div style={styles.addImageSection}>
-            <input
-              type="text"
-              value={newRoomAmenity}
-              onChange={(e) => setNewRoomAmenity(e.target.value)}
-              placeholder="e.g., Private bathroom, Work desk"
-              style={styles.input}
-            />
-            <button type="button" onClick={addRoomAmenity} style={styles.addButton}>
-              Add
-            </button>
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '10px' }}>
-            {(editedRoom.amenities || []).map((amenity, i) => (
-              <div key={i} style={styles.amenityTag}>
-                {amenity}
-                <button
-                  type="button"
-                  onClick={() => removeRoomAmenity(i)}
-                  style={styles.removeTagButton}
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
+                {/* Capacity and Dual Prices */}
+                <div className="grid grid-cols-3 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Capacity</label>
+                        <input
+                            type="number"
+                            value={editedRoom.capacity}
+                            onChange={(e) => setEditedRoom({ ...editedRoom, capacity: parseInt(e.target.value) })}
+                            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                            min={1}
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Price USDC</label>
+                        <input
+                            type="number"
+                            value={editedRoom.priceUSDC}
+                            onChange={(e) => setEditedRoom({ ...editedRoom, priceUSDC: parseFloat(e.target.value) })}
+                            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                            step="0.01"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Price USDT</label>
+                        <input
+                            type="number"
+                            value={editedRoom.priceUSDT}
+                            onChange={(e) => setEditedRoom({ ...editedRoom, priceUSDT: parseFloat(e.target.value) })}
+                            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                            step="0.01"
+                        />
+                    </div>
+                </div>
 
-        <div style={modalStyles.actions}>
-          <button onClick={onCancel} style={modalStyles.cancelButton}>
-            Cancel
-          </button>
-          <button onClick={() => onSave(editedRoom)} style={modalStyles.saveButton}>
-            Save Room
-          </button>
+                {/* Room Images */}
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Room Images</label>
+                    <div className="flex gap-3 mb-4">
+                        <input
+                            type="text"
+                            value={newRoomImage}
+                            onChange={(e) => setNewRoomImage(e.target.value)}
+                            placeholder="Enter image URL"
+                            className="flex-grow p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                        />
+                        <button type="button" onClick={addRoomImage} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-150 flex items-center">
+                            Add
+                        </button>
+                    </div>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                        {(editedRoom.images || []).map((img, i) => (
+                            <div key={i} className="relative w-20 h-20 group">
+                                <img src={img} alt="" className="w-full h-full object-cover rounded-md" />
+                                <button
+                                    type="button"
+                                    onClick={() => removeRoomImage(i)}
+                                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+                                >
+                                    <X size={14} />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Room Amenities */}
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Room Amenities</label>
+                    <div className="flex gap-3 mb-4">
+                        <input
+                            type="text"
+                            value={newRoomAmenity}
+                            onChange={(e) => setNewRoomAmenity(e.target.value)}
+                            placeholder="e.g., Private bathroom, Work desk"
+                            className="flex-grow p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                        />
+                        <button type="button" onClick={addRoomAmenity} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-150 flex items-center">
+                            Add
+                        </button>
+                    </div>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                        {(editedRoom.amenities || []).map((amenity, i) => (
+                            <div key={i} className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium flex items-center gap-1">
+                                {amenity}
+                                <button
+                                    type="button"
+                                    onClick={() => removeRoomAmenity(i)}
+                                    className="text-green-800 hover:text-green-900 transition"
+                                >
+                                    <X size={14} />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                    <button onClick={onCancel} type="button" className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition duration-150">
+                        Cancel
+                    </button>
+                    <button onClick={handleSave} type="button" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-150">
+                        Save Room
+                    </button>
+                </div>
+            </div>
         </div>
-      </div>
-    </div>
-  );
+    );
 }
-
-// Styles
-const styles = {
-  container: { maxWidth: '1200px', margin: '0 auto', padding: '20px' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' },
-  title: { fontSize: '2rem', fontWeight: 'bold' },
-  backButton: { padding: '10px 20px', backgroundColor: '#6b7280', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' },
-  tabs: { display: 'flex', gap: '8px', marginBottom: '30px', borderBottom: '2px solid #e5e7eb' },
-  tab: { padding: '12px 24px', backgroundColor: 'transparent', border: 'none', borderBottom: '3px solid transparent', cursor: 'pointer', fontSize: '1rem', fontWeight: '500', color: '#666' },
-  activeTab: { color: '#0070f3', borderBottomColor: '#0070f3', fontWeight: '600' },
-  section: { backgroundColor: 'white', padding: '30px', borderRadius: '8px', marginBottom: '20px' },
-  sectionHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' },
-  sectionTitle: { fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '20px' },
-  field: { marginBottom: '20px', flex: '1' },
-  fieldRow: { display: 'flex', gap: '20px' },
-  label: { display: 'block', marginBottom: '8px', fontWeight: '500', color: '#374151' },
-  input: { width: '100%', padding: '10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '1rem' },
-  textarea: { width: '100%', padding: '10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '1rem', fontFamily: 'inherit' },
-  checkboxGroup: { display: 'flex', gap: '20px', marginTop: '20px' },
-  checkboxLabel: { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1rem' },
-  addImageSection: { display: 'flex', gap: '10px', marginBottom: '30px' },
-  addButton: { padding: '10px 20px', backgroundColor: '#0070f3', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', whiteSpace: 'nowrap' as const },
-  imageGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '20px' },
-  imageCard: { border: '1px solid #e5e7eb', borderRadius: '8px', padding: '15px', backgroundColor: '#f9fafb' },
-  imagePreview: { width: '100%', height: '150px', backgroundColor: '#e5e7eb', borderRadius: '6px', overflow: 'hidden', marginBottom: '10px' },
-  image: { width: '100%', height: '100%', objectFit: 'cover' as const },
-  imageUrl: { fontSize: '0.8rem', color: '#6b7280', marginBottom: '10px', wordBreak: 'break-all' as const },
-  removeButton: { padding: '6px 12px', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.9rem' },
-  roomsList: { display: 'grid', gap: '20px' },
-  roomCard: { border: '1px solid #e5e7eb', borderRadius: '8px', padding: '20px', backgroundColor: '#f9fafb' },
-  roomMeta: { display: 'flex', gap: '20px', margin: '15px 0', color: '#6b7280' },
-  roomActions: { display: 'flex', gap: '10px' },
-  editButton: { padding: '8px 16px', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' },
-  deleteButton: { padding: '8px 16px', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' },
-  amenitiesList: { display: 'flex', flexWrap: 'wrap' as const, gap: '10px' },
-  amenityTag: { padding: '8px 16px', backgroundColor: '#dbeafe', color: '#1e40af', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem' },
-  removeTagButton: { backgroundColor: 'transparent', border: 'none', color: '#1e40af', fontSize: '1.2rem', cursor: 'pointer', padding: '0 4px' },
-  emptyState: { textAlign: 'center' as const, padding: '60px 20px', color: '#9ca3af', fontSize: '1.1rem' },
-  footer: { marginTop: '30px', display: 'flex', justifyContent: 'flex-end' },
-  saveButton: { padding: '12px 32px', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '6px', fontSize: '1.1rem', fontWeight: '600', cursor: 'pointer' },
-};
-
-const modalStyles = {
-  overlay: { position: 'fixed' as const, top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, overflowY: 'auto' as const, padding: '20px' },
-  modal: { backgroundColor: 'white', padding: '30px', borderRadius: '12px', maxWidth: '700px', width: '90%', maxHeight: '90vh', overflow: 'auto' },
-  actions: { display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '30px' },
-  cancelButton: { padding: '10px 20px', backgroundColor: '#6b7280', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' },
-  saveButton: { padding: '10px 20px', backgroundColor: '#0070f3', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' },
-};

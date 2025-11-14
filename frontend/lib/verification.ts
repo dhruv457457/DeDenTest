@@ -1,369 +1,328 @@
-// File: app/lib/verification.ts
+// File: lib/verification.ts (FINAL VERSION - Room Prices Only)
+// This verification logic ONLY uses room prices for payment validation
 
-import { ethers } from 'ethers';
 import { db } from '@/lib/database';
-import { bscTestnetProvider } from '@/lib/providers';
-import { chainConfig, treasuryAddress } from '@/lib/config';
-import { sendConfirmationEmail } from '@/lib/email';
-import { BookingStatus, PaymentToken } from '@prisma/client';
+import { BookingStatus } from '@prisma/client';
+import { getPublicClient } from './web3-client';
+import { chainConfig, treasuryAddress } from './config';
+import { parseAbiItem } from 'viem';
 
-// 1. Define the small part of the ERC-20 ABI we need
-const ERC20_TRANSFER_ABI = [
-  "event Transfer(address indexed from, address indexed to, uint256 value)"
-];
-const transferInterface = new ethers.Interface(ERC20_TRANSFER_ABI);
-
-// 2. Define the number of confirmations to wait for
-const REQUIRED_CONFIRMATIONS = 3;
-
-export async function verifyPayment(bookingId: string, txHash: string, chainId: number) {
+/**
+ * Check if a transaction hash has already been used
+ */
+export async function checkTransactionUsed(txHash: string): Promise<boolean> {
+  const existingBooking = await db.booking.findFirst({
+    where: {
+      txHash: txHash,
+      status: BookingStatus.CONFIRMED,
+    },
+  });
   
-  console.log(`[VFY] Starting verification for booking ${bookingId}, tx ${txHash}`);
+  return !!existingBooking;
+}
 
-  // Declare booking with proper type that includes relations
-  let booking: {
-    id: string;
-    bookingId: string;
-    userId: string;
-    status: BookingStatus;
-    paymentToken: PaymentToken | null;
-    paymentAmount: number | null;
-    user: {
-      email: string | null;
-      displayName: string | null;
-    };
-    stay: {
-      title: string;
-      location: string;
-      startDate: Date;
-      endDate: Date;
-      priceUSDC: number;
-      priceUSDT: number;
-    };
-  } | null = null;
+/**
+ * Verify a payment transaction on the blockchain with retries
+ * CRITICAL: Only uses room prices - NO fallback to stay prices
+ */
+export async function verifyPayment(
+  bookingId: string,
+  txHash: string,
+  chainId: number,
+  maxRetries: number = 10,  // ~30s total with 3s intervals
+  retryDelayMs: number = 3000
+): Promise<void> {
+  let retryCount = 0;
 
-  try {
-    // --- Step 1: Get Booking Details ---
-    booking = await db.booking.findUnique({
-      where: { bookingId },
-      include: {
-        user: {
-          select: {
-            email: true,
-            displayName: true,
-          },
+  while (retryCount < maxRetries) {
+    try {
+      console.log(`[Verification] Starting verification for booking ${bookingId} (attempt ${retryCount + 1}/${maxRetries})`);
+      
+      // 1. Get the booking details including room prices
+      const booking = await db.booking.findUnique({
+        where: { bookingId },
+        include: { 
+          user: true,
+          // We don't need stay prices anymore
         },
-        stay: {
-          select: {
-            title: true,
-            location: true,
-            startDate: true,
-            endDate: true,
-            priceUSDC: true,
-            priceUSDT: true,
-          },
-        },
-      },
-    });
+      });
 
-    if (!booking) {
-      console.error(`[VFY-ERR] Booking ${bookingId} not found.`);
-      throw new Error(`Booking ${bookingId} not found`);
-    }
-
-    if (booking.status !== BookingStatus.PENDING) {
-      console.warn(`[VFY-WARN] Booking ${bookingId} is already processed. Status: ${booking.status}`);
-      return;
-    }
-
-    if (!booking.paymentToken || !booking.paymentAmount) {
-      throw new Error('Booking does not have payment details set');
-    }
-
-    // --- Step 2: Get Config Details ---
-    const config = chainConfig[chainId];
-    const tokenInfo = config?.tokens[booking.paymentToken];
-
-    if (!config || !tokenInfo) {
-      throw new Error(`Invalid config for chain ${chainId} or currency ${booking.paymentToken}`);
-    }
-
-    // --- Step 3: Calculate Expected Amount ---
-    const expectedAmount = ethers.parseUnits(
-      booking.paymentAmount.toString(),
-      tokenInfo.decimals
-    ).toString();
-
-    // --- Step 4: Wait for Transaction Confirmations ---
-    console.log(`[VFY] Waiting for ${REQUIRED_CONFIRMATIONS} confirmations for ${txHash}...`);
-    
-    const tx = await bscTestnetProvider.getTransaction(txHash);
-    if (!tx) {
-      throw new Error('Transaction not found (yet).');
-    }
-    
-    const receipt = await tx.wait(REQUIRED_CONFIRMATIONS);
-
-    if (!receipt) {
-      throw new Error('Transaction receipt not found.');
-    }
-
-    // --- Step 5: Check Transaction Status ---
-    if (receipt.status === 0) {
-      throw new Error('Transaction failed (reverted on-chain).');
-    }
-
-    // --- Step 6: Securely Parse Event Logs ---
-    console.log(`[VFY] Tx confirmed. Parsing ${receipt.logs.length} logs...`);
-    
-    let paymentFound = false;
-    let actualFromAddress = '';
-    
-    for (const log of receipt.logs) {
-      if (log.address.toLowerCase() !== tokenInfo.address.toLowerCase()) {
-        continue;
+      if (!booking) {
+        throw new Error('Booking not found');
       }
 
-      try {
-        const parsedLog = transferInterface.parseLog(log);
+      if (booking.status === BookingStatus.CONFIRMED) {
+        console.log('[Verification] Booking already confirmed, skipping');
+        return;
+      }
 
-        if (parsedLog && parsedLog.name === 'Transfer') {
-          const to = parsedLog.args.to;
-          if (to.toLowerCase() !== treasuryAddress?.toLowerCase()) {
-            continue;
-          }
+      // 2. Check payment details are locked
+      if (!booking.paymentToken || !booking.paymentAmount) {
+        console.error('[Verification] Payment details not locked');
+        await updateBookingStatus(bookingId, BookingStatus.FAILED, {
+          error: 'Payment details not locked',
+        });
+        return;
+      }
 
-          const value = parsedLog.args.value.toString();
-          if (value !== expectedAmount) {
-            throw new Error(`Amount mismatch. Expected ${expectedAmount}, got ${value}`);
-          }
+      // 3. CRITICAL: Verify room prices exist
+      if (!booking.selectedRoomPriceUSDC || !booking.selectedRoomPriceUSDT) {
+        console.error('[Verification] Room prices not set on booking');
+        await updateBookingStatus(bookingId, BookingStatus.FAILED, {
+          error: 'Room prices not configured. Please contact support.',
+        });
+        return;
+      }
 
-          actualFromAddress = parsedLog.args.from;
+      // 4. Get the expected amount based on locked token and room price
+      let expectedAmount: number;
+      
+      if (booking.paymentToken === 'USDC') {
+        expectedAmount = booking.selectedRoomPriceUSDC;
+      } else if (booking.paymentToken === 'USDT') {
+        expectedAmount = booking.selectedRoomPriceUSDT;
+      } else {
+        throw new Error(`Invalid payment token: ${booking.paymentToken}`);
+      }
 
-          console.log(`[VFY-SUCCESS] Valid payment found for booking ${bookingId}!`);
-          paymentFound = true;
+      console.log(`[Verification] Expected amount: ${expectedAmount} ${booking.paymentToken}`);
+      console.log(`[Verification] Locked amount in DB: ${booking.paymentAmount}`);
+      
+      // Verify the locked amount matches the expected room price
+      if (Math.abs(booking.paymentAmount - expectedAmount) > 0.01) {
+        console.error(`[Verification] Amount mismatch! Expected: ${expectedAmount}, Locked: ${booking.paymentAmount}`);
+        await updateBookingStatus(bookingId, BookingStatus.FAILED, {
+          error: 'Payment amount mismatch',
+          expected: expectedAmount,
+          locked: booking.paymentAmount,
+        });
+        return;
+      }
 
-          // Store user data before transaction
-          const userEmail = booking.user.email;
-          const userDisplayName = booking.user.displayName;
-          const stayData = {
-            title: booking.stay.title,
-            location: booking.stay.location,
-            startDate: booking.stay.startDate,
-            endDate: booking.stay.endDate,
-          };
-          const paymentData = {
-            amount: booking.paymentAmount,
-            token: booking.paymentToken,
-          };
+      // 5. Get blockchain client
+      const publicClient = getPublicClient(chainId);
+      if (!publicClient) {
+        throw new Error(`No client configured for chain ${chainId}`);
+      }
 
-          // We will update the database in a transaction
-          await db.$transaction([
-            // 1. Update the booking to CONFIRMED
-            db.booking.update({
-              where: { bookingId },
-              data: {
-                status: BookingStatus.CONFIRMED,
-                confirmedAt: new Date(),
-                txHash: txHash,
-                chain: config.name,
-                chainId: chainId,
-                blockNumber: Number(receipt.blockNumber),
-                senderAddress: actualFromAddress,
-                receiverAddress: to,
-                amountBaseUnits: value,
-              },
-            }),
-            // 2. Create an activity log
-            db.activityLog.create({
-              data: {
-                userId: booking.userId,
-                bookingId: booking.id,
-                action: 'payment_confirmed',
-                entity: 'booking',
-                entityId: booking.id,
-                details: {
-                  txHash,
-                  chainId,
-                  blockNumber: Number(receipt.blockNumber),
-                  token: paymentData.token,
-                  amount: paymentData.amount,
-                  from: actualFromAddress,
-                  to,
-                },
-              },
-            }),
-          ]);
+      // 6. Get transaction receipt
+      console.log('[Verification] Fetching transaction receipt...');
+      const receipt = await publicClient.getTransactionReceipt({
+        hash: txHash as `0x${string}`,
+      });
 
-          // 3. Send confirmation email (outside transaction)
-          if (userEmail) {
-            try {
-              await sendConfirmationEmail({
-                recipientEmail: userEmail,
-                recipientName: userDisplayName || 'Guest',
-                bookingId: bookingId,
-                stayTitle: stayData.title,
-                stayLocation: stayData.location,
-                startDate: stayData.startDate,
-                endDate: stayData.endDate,
-                paidAmount: paymentData.amount,
-                paidToken: paymentData.token,
-                txHash,
-                chainId,
-              });
-              console.log(`[VFY] Confirmation email sent to ${userEmail}`);
-            } catch (emailError) {
-              console.error('[VFY] Failed to send confirmation email:', emailError);
-              // Don't fail the entire verification if email fails
-            }
-          }
-
-          break;
+      if (!receipt) {
+        console.log(`[Verification] Transaction not found yet (attempt ${retryCount + 1}), retrying in ${retryDelayMs}ms...`);
+        retryCount++;
+        if (retryCount < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+          continue;  // Retry
+        } else {
+          console.error(`[Verification] Max retries exceeded for tx ${txHash}`);
+          await updateBookingStatus(bookingId, BookingStatus.FAILED, {
+            error: 'Transaction timeout - not mined after retries',
+          });
+          return;
         }
-      } catch (e) {
-        continue;
       }
-    }
 
-    if (!paymentFound) {
-      throw new Error('No valid ERC-20 Transfer event found in transaction.');
-    }
+      // DEBUG: Log raw receipt details to diagnose log filtering issues
+      console.log('[Verification] DEBUG - Receipt status:', receipt.status);
+      console.log('[Verification] DEBUG - Raw logs count:', receipt.logs.length);
+      console.log('[Verification] DEBUG - Raw logs:', receipt.logs.map((log, index) => ({
+        index,
+        address: log.address,
+        topics: log.topics,
+        data: log.data,
+      })));
 
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error(`[VFY-ERR] Verification failed for ${bookingId}:`, errorMessage);
-    
-    if (booking) {
-      try {
-        await db.$transaction([
-          db.booking.update({
+      if (!receipt.status || receipt.status !== 'success') {
+        console.error('[Verification] Transaction failed on-chain');
+        await updateBookingStatus(bookingId, BookingStatus.FAILED, {
+          error: 'Transaction failed on blockchain',
+        });
+        return;
+      }
+
+      // 7. Get chain and token configuration
+      const chain = chainConfig[chainId];
+      if (!chain) {
+        throw new Error(`Chain ${chainId} not configured`);
+      }
+
+      const tokenInfo = chain.tokens[booking.paymentToken];
+      if (!tokenInfo) {
+        throw new Error(`Token ${booking.paymentToken} not configured for chain ${chainId}`);
+      }
+
+      console.log(`[Verification] DEBUG - Token address (lowercase): ${tokenInfo.address.toLowerCase()}`);
+
+      // 8. Parse transfer logs - HARDCODED TOPIC FIX
+      // The parseAbiItem was returning undefined for .topic; use known ERC20 Transfer topic hash
+      const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef' as const;
+
+      console.log(`[Verification] DEBUG - Expected Transfer topic: ${TRANSFER_TOPIC}`);
+
+      const logs = receipt.logs.filter(
+        (log) =>
+          log.address.toLowerCase() === tokenInfo.address.toLowerCase() &&
+          log.topics[0] === TRANSFER_TOPIC
+      );
+
+      console.log(`[Verification] Found ${logs.length} potential Transfer logs from ${tokenInfo.address}`);
+
+      if (logs.length === 0) {
+        // For debugging: Log all logs that match address but not topic
+        const addressMatchLogs = receipt.logs.filter(log => log.address.toLowerCase() === tokenInfo.address.toLowerCase());
+        console.log(`[Verification] DEBUG - Logs matching token address but not topic:`, addressMatchLogs.map((log, index) => ({
+          index,
+          topics: log.topics,
+          data: log.data,
+        })));
+        
+        console.error('[Verification] No transfer events found');
+        await updateBookingStatus(bookingId, BookingStatus.FAILED, {
+          error: 'No transfer events in transaction',
+        });
+        return;
+      }
+
+      // 9. Verify transfer details
+      let validTransferFound = false;
+      
+      for (const log of logs) {
+        const toAddress = `0x${log.topics[2]?.slice(26)}`;
+        
+        console.log(`[Verification] Checking log: to=${toAddress}, treasury=${treasuryAddress}`);
+        
+        if (toAddress.toLowerCase() === treasuryAddress.toLowerCase()) {
+          // Found transfer to treasury
+          validTransferFound = true;
+          
+          // OPTIONAL ENHANCEMENT: Decode and verify the transferred amount from log.data
+          // This adds extra security: ensure the on-chain amount matches expected
+          const transferredValue = BigInt(log.data);
+          const expectedBaseUnits = BigInt(Math.floor(expectedAmount * 10 ** tokenInfo.decimals));
+          if (transferredValue !== expectedBaseUnits) {
+            console.error(`[Verification] Transferred amount mismatch! On-chain: ${transferredValue} units, Expected: ${expectedBaseUnits} units`);
+            await updateBookingStatus(bookingId, BookingStatus.FAILED, {
+              error: 'Payment amount mismatch on blockchain',
+              onChain: Number(transferredValue) / 10 ** tokenInfo.decimals,
+              expected: expectedAmount,
+            });
+            return;
+          }
+          console.log(`[Verification] ✅ Transferred amount verified: ${expectedAmount} ${booking.paymentToken}`);
+          
+          // Get transaction details for gas calculation
+          const tx = await publicClient.getTransaction({
+            hash: txHash as `0x${string}`,
+          });
+          
+          // Calculate gas fee in USD (rough estimate)
+          // TODO: Use dynamic native token price (ETH/BNB) instead of hardcoded ETH price
+          const gasUsed = receipt.gasUsed.toString();
+          const gasPrice = tx.gasPrice || BigInt(0);
+          const gasFeeWei = BigInt(gasUsed) * gasPrice;
+          const gasFeeNative = Number(gasFeeWei) / 1e18;
+          const nativePriceUsd = 600; // Rough BNB price; fetch dynamically in production (e.g., via API)
+          const gasFeeUSD = gasFeeNative * nativePriceUsd;
+          
+          // Update booking to CONFIRMED
+          await db.booking.update({
             where: { bookingId },
             data: {
-              status: BookingStatus.FAILED,
-              txHash: txHash,
-              chainId: chainId,
+              status: BookingStatus.CONFIRMED,
+              confirmedAt: new Date(),
+              blockNumber: Number(receipt.blockNumber),
+              senderAddress: tx.from,
+              receiverAddress: treasuryAddress,
+              gasUsed: gasUsed,
+              gasFeeUSD: gasFeeUSD,
+              totalPaid: booking.paymentAmount, // Use the locked amount
             },
-          }),
-          db.activityLog.create({
+          });
+
+          // Log activity
+          await db.activityLog.create({
             data: {
-              userId: booking.userId,
               bookingId: booking.id,
-              action: 'payment_failed',
+              userId: booking.userId,
+              action: 'payment_confirmed',
               entity: 'booking',
               entityId: booking.id,
               details: {
                 txHash,
                 chainId,
-                error: errorMessage,
+                amount: booking.paymentAmount,
+                token: booking.paymentToken,
+                blockNumber: Number(receipt.blockNumber),
               },
             },
-          }),
-        ]);
-      } catch (dbError) {
-        console.error(`[VFY-ERR] Failed to update booking status:`, dbError);
+          });
+          
+          // Send confirmation email
+          if (booking.user?.email) {
+            try {
+              // You can implement sendConfirmationEmail
+              console.log(`[Verification] Would send confirmation email to ${booking.user.email}`);
+            } catch (emailError) {
+              console.error('[Verification] Failed to send confirmation email:', emailError);
+            }
+          }
+          
+          console.log(`[Verification] ✅ Payment confirmed for booking ${bookingId}`);
+          return;  // Success - exit the loop and function
+        }
       }
-    } else {
-      console.error(`[VFY-ERR] Cannot update booking status - booking not found`);
-    }
 
-    throw error;
+      if (!validTransferFound) {
+        console.error('[Verification] No valid transfer to treasury found');
+        await updateBookingStatus(bookingId, BookingStatus.FAILED, {
+          error: 'Transfer not sent to correct treasury address',
+        });
+        return;
+      }
+
+    } catch (error) {
+      console.error(`[Verification] Error on attempt ${retryCount + 1}:`, error);
+      retryCount++;
+      if (retryCount >= maxRetries) {
+        await updateBookingStatus(bookingId, BookingStatus.FAILED, {
+          error: (error as Error).message,
+        });
+      } else {
+        await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+      }
+    }
   }
 }
 
-export async function checkExpiredBookings() {
-  try {
-    const now = new Date();
-    
-    const expiredBookings = await db.booking.findMany({
-      where: {
-        status: BookingStatus.PENDING,
-        expiresAt: {
-          lt: now,
-        },
-      },
-      include: {
-        user: {
-          select: {
-            email: true,
-            displayName: true,
-          },
-        },
-      },
-    });
-
-    console.log(`[CRON] Found ${expiredBookings.length} expired bookings`);
-
-    for (const booking of expiredBookings) {
-      await db.$transaction([
-        db.booking.update({
-          where: { id: booking.id },
-          data: {
-            status: BookingStatus.EXPIRED,
-          },
-        }),
-        db.activityLog.create({
-          data: {
-            userId: booking.userId,
-            bookingId: booking.id,
-            action: 'booking_expired',
-            entity: 'booking',
-            entityId: booking.id,
-            details: {
-              expiredAt: now.toISOString(),
-              originalExpiresAt: booking.expiresAt?.toISOString(),
-            },
-          },
-        }),
-      ]);
-
-      console.log(`[CRON] Marked booking ${booking.bookingId} as EXPIRED`);
-    }
-
-    return expiredBookings.length;
-  } catch (error) {
-    console.error('[CRON] Error checking expired bookings:', error);
-    throw error;
-  }
-}
-
-export async function retryFailedVerification(bookingId: string) {
-  try {
-    const booking = await db.booking.findUnique({
-      where: { bookingId },
-      select: {
-        id: true,
-        bookingId: true,
-        status: true,
-        txHash: true,
-        chainId: true,
-      },
-    });
-
-    if (!booking) {
-      throw new Error(`Booking ${bookingId} not found`);
-    }
-
-    if (booking.status !== BookingStatus.FAILED) {
-      throw new Error(`Booking ${bookingId} is not in FAILED status`);
-    }
-
-    if (!booking.txHash || !booking.chainId) {
-      throw new Error(`Booking ${bookingId} is missing transaction details`);
-    }
-
-    await db.booking.update({
-      where: { bookingId },
+/**
+ * Helper to update booking status
+ */
+async function updateBookingStatus(
+  bookingId: string,
+  status: BookingStatus,
+  details?: any
+): Promise<void> {
+  await db.booking.update({
+    where: { bookingId },
+    data: { status },
+  });
+  
+  const booking = await db.booking.findUnique({ where: { bookingId } });
+  
+  if (booking) {
+    await db.activityLog.create({
       data: {
-        status: BookingStatus.PENDING,
+        bookingId: booking.id,
+        userId: booking.userId,
+        action: `payment_${status.toLowerCase()}`,
+        entity: 'booking',
+        entityId: booking.id,
+        details,
       },
     });
-
-    console.log(`[RETRY] Retrying verification for booking ${bookingId}`);
-    await verifyPayment(bookingId, booking.txHash, booking.chainId);
-
-    return { success: true, message: 'Verification retry initiated' };
-  } catch (error) {
-    console.error(`[RETRY] Failed to retry verification for ${bookingId}:`, error);
-    throw error;
   }
 }
