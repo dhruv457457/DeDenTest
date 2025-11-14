@@ -1,4 +1,3 @@
-// app/auth/signin/page.tsx
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -11,7 +10,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { GoogleIcon, WalletIcon } from "@/components/Icons";
 
-// --- WaveDivider component ---
+// --- WaveDivider component (Unchanged) ---
 const WaveDivider: React.FC<{
   colorClassName: string;
   inverted?: boolean;
@@ -27,11 +26,58 @@ const WaveDivider: React.FC<{
   />
 );
 
-// --- SignInForm component ---
+// --- Tab type (Unchanged) ---
+type Tab = "signup" | "login";
+
+// --- MODIFIED: TabButton component (Style Rework) ---
+const TabButton: React.FC<{
+  label: string;
+  isActive: boolean;
+  onClick: () => void;
+}> = ({ label, isActive, onClick }) => (
+  <button
+    onClick={onClick}
+    className={`w-1/2 py-3 px-4 font-semibold text-center transition-colors duration-200 ${
+      isActive
+        ? "bg-white text-[#172a46]" // ACTIVE: White BG, Dark Font
+        : "bg-[#1f3a5a] text-gray-300 hover:bg-[#254261] hover:text-white" // INACTIVE: Dark BG, Light Font
+    }`}
+  >
+    {label}
+  </button>
+);
+
+// --- Info List Item component (Unchanged) ---
+const InfoListItem: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => (
+  <li className="flex items-start space-x-3">
+    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-[#2a4562] flex items-center justify-center mt-1">
+      <svg
+        className="w-4 h-4 text-[#E7E4DF]"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="3"
+          d="M5 13l4 4L19 7"
+        ></path>
+      </svg>
+    </div>
+    <span className="text-lg text-gray-300">{children}</span>
+  </li>
+);
+
+// --- SignInForm component (Refactored) ---
 function SignInForm() {
   const [isLoadingGoogle, setIsLoadingGoogle] = useState(false);
   const [isLoadingWallet, setIsLoadingWallet] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<Tab>("signup");
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -41,17 +87,17 @@ function SignInForm() {
   const { address, chainId, isConnected } = useAccount();
   const { signMessageAsync } = useSignMessage();
 
-  // --- Wallet & SIWE Logic ---
+  // --- Wallet & SIWE Logic (Unchanged) ---
   const handleWalletSignIn = async () => {
     setIsLoadingWallet(true);
     setError(null);
     try {
-      // 1. Connect wallet if not already connected
+      // 1. Connect wallet
       if (!isConnected || !address) {
         await connectAsync({ connector: injected() });
       }
 
-      // 2. Wait for account state to update and verify we have the required data
+      // 2. Wait for account state to update
       let attempts = 0;
       const maxAttempts = 10;
       let currentAddress = address;
@@ -59,11 +105,15 @@ function SignInForm() {
 
       while ((!currentAddress || !currentChainId) && attempts < maxAttempts) {
         await new Promise((resolve) => setTimeout(resolve, 100));
-        // Re-check the hook values
-        currentAddress = address;
-        currentChainId = chainId;
+        currentAddress = (window as any).ethereum?.selectedAddress || address;
+        currentChainId = (window as any).ethereum?.chainId
+          ? parseInt((window as any).ethereum.chainId, 16)
+          : chainId;
         attempts++;
       }
+
+      currentAddress = currentAddress || address;
+      currentChainId = currentChainId || chainId;
 
       if (!currentAddress || !currentChainId) {
         throw new Error("Wallet connection failed. Please try again.");
@@ -113,6 +163,16 @@ function SignInForm() {
         e.message.includes("User denied")
       ) {
         setError("Sign-in request rejected.");
+      } else if (
+        e.message.includes("Wallet not found") ||
+        e.message.includes("Account not found") ||
+        e.message.includes("Wallet not registered") ||
+        e.message.includes("CredentialsSignin")
+      ) {
+        setError(
+          "This wallet isn't linked to an account. Please use the 'Sign Up' tab to create an account with Google first."
+        );
+        setActiveTab("signup");
       } else {
         setError(e.message || "Failed to sign in with wallet.");
       }
@@ -121,7 +181,7 @@ function SignInForm() {
     }
   };
 
-  // --- Google Sign-In Logic ---
+  // --- Google Sign-In Logic (Unchanged) ---
   const handleGoogleSignIn = () => {
     setIsLoadingGoogle(true);
     setError(null);
@@ -132,7 +192,7 @@ function SignInForm() {
     });
   };
 
-  // --- Handle NextAuth errors from URL ---
+  // --- Handle NextAuth errors from URL (Unchanged) ---
   useEffect(() => {
     const authError = searchParams.get("error");
     if (authError) {
@@ -143,75 +203,140 @@ function SignInForm() {
       } else {
         setError("An unknown authentication error occurred. Please try again.");
       }
-      // Clear the error from the URL
       router.replace("/auth/signin", { scroll: false });
     }
   }, [searchParams, router]);
 
+  // --- Dynamic content based on tab (Unchanged) ---
+  const title = activeTab === "signup" ? "Create Account" : "Sign In";
+  const subtitle =
+    activeTab === "signup"
+      ? "Create your DEDEN account to get started."
+      : "Welcome back! Sign in to your account.";
+  const googleButtonText =
+    activeTab === "signup" ? "Sign up with Google" : "Sign in with Google";
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#E7E4DF] p-4 relative overflow-hidden w-full h-full">
       {/* Sign-In Card */}
-      <div className="flex flex-col md:flex-row  w-full bg-[#172a46] rounded-2xl shadow-2xl p-8 z-10 md:w-6/12 2xl:w-5/12 md:-mt-60 md:justify-between md:items-center">
+      <div className="flex flex-col md:flex-row  w-full bg-[#172a46] rounded-2xl shadow-2xl p-8 z-10 md:w-5/12 md:-mt-60 md:justify-between md:items-center">
         {/* Logo */}
         <div>
           <h1 className="font-berlin text-5xl md:text-7xl font-bold text-center text-white mb-6">
             Sign In
           </h1>
+          <p className="text-gray-300 mb-6 text-lg">{subtitle}</p>
 
-          <p className="text-center text-gray-300 mb-8">
-            Choose your preferred method to log in.
-          </p>
+          {/* --- MOVED: Error Message IS NOW HERE --- */}
           {error && (
-            <div className="bg-red-900 border border-red-700 text-red-100 px-4 py-3 rounded-lg mb-6 text-sm">
+            <div className="bg-red-900 border border-red-700 text-red-100 px-4 py-3 rounded-lg text-sm mb-6">
               <strong>Error:</strong> {error}
             </div>
           )}
+
+          {/* --- Info List --- */}
+          <ul className="space-y-5 mt-4">
+            <InfoListItem>
+              <strong className="text-white">Where Web3 lives</strong> and
+              builders connect
+            </InfoListItem>
+            <InfoListItem>
+              A <strong className="text-white">luxury villa experience</strong>{" "}
+              curated for the biggest Web3 events.
+            </InfoListItem>
+            <InfoListItem>
+              <strong className="text-white">Network.</strong>{" "}
+              <strong className="text-white">Unwind.</strong>{" "}
+              <strong className="text-white">Buidl IRL.</strong>
+            </InfoListItem>
+          </ul>
         </div>
-        <div className="">
+
+        {/* --- MODIFIED: RIGHT COLUMN (Form & Actions) --- */}
+        <div className="w-full md:w-1/2 p-8 md:p-12 bg-[#0f1e33] rounded-b-2xl md:rounded-r-2xl md:rounded-l-none flex flex-col justify-center">
+          {/* --- REMOVED: Title, Subtitle, and Error (moved to left) --- */}
+
+          {/* --- Tab Switcher --- */}
+          <div className="flex rounded-lg overflow-hidden mb-6 border border-[#2a4562]">
+            <TabButton
+              label="Sign Up"
+              isActive={activeTab === "signup"}
+              onClick={() => {
+                setError(null);
+                setActiveTab("signup");
+              }}
+            />
+            <TabButton
+              label="Log In"
+              isActive={activeTab === "login"}
+              onClick={() => {
+                setError(null);
+                setActiveTab("login");
+              }}
+            />
+          </div>
+
+          {/* --- Conditional Content --- */}
           <div className="space-y-4">
-            {/* Google Button */}
+            {/* Google Button (Text is dynamic) */}
             <button
               onClick={handleGoogleSignIn}
               disabled={isLoadingGoogle || isLoadingWallet}
-              className="w-full flex items-center justify-center gap-3 bg-white text-[#172a46] font-semibold py-3 px-5 rounded-full md:rounded-xl shadow-lg transition-all hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed "
+              className="w-full flex items-center justify-center gap-3 bg-white text-[#172a46] font-semibold py-3 px-5 rounded-xl shadow-lg transition-all hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoadingGoogle ? (
                 <Spinner />
               ) : (
                 <>
-                  <GoogleIcon /> Sign in with Google
+                  <GoogleIcon /> {googleButtonText}
                 </>
               )}
             </button>
 
-            {/* Wallet Button */}
-            <button
-              onClick={handleWalletSignIn}
-              disabled={isLoadingWallet || isLoadingGoogle}
-              className="w-full flex items-center justify-center gap-3 bg-[#2a4562] text-white font-semibold py-3 px-5 rounded-full md:rounded-xl shadow-lg transition-all hover:bg-[#3a5572] disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoadingWallet ? (
-                <Spinner />
-              ) : (
-                <>
-                  <WalletIcon /> Sign in with Wallet
-                </>
-              )}
-            </button>
+            {/* --- "Sign Up" Tab Content --- */}
+            {activeTab === "signup" && (
+              <p className="text-gray-400 text-sm text-center pt-2">
+                New accounts must be created with Google. You can link your
+                wallet from your profile settings after signing up.
+              </p>
+            )}
+
+            {/* --- "Log In" Tab Content (Wallet Button) --- */}
+            {activeTab === "login" && (
+              <>
+                {/* Divider */}
+                <div className="flex items-center pt-2">
+                  <div className="flex-grow border-t border-gray-600"></div>
+                  <span className="flex-shrink mx-4 text-gray-400 text-sm">
+                    OR
+                  </span>
+                  <div className="flex-grow border-t border-gray-600"></div>
+                </div>
+
+                {/* Wallet Button */}
+                <button
+                  onClick={handleWalletSignIn}
+                  disabled={isLoadingWallet || isLoadingGoogle}
+                  className="w-full flex items-center justify-center gap-3 bg-[#2a4562] text-white font-semibold py-3 px-5 rounded-xl shadow-lg transition-all hover:bg-[#3a5572] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isLoadingWallet ? (
+                    <Spinner />
+                  ) : (
+                    <>
+                      <WalletIcon /> Sign in with Wallet
+                    </>
+                  )}
+                </button>
+              </>
+            )}
           </div>
         </div>
-
-        {/* Heading */}
-
-        {/* Error message */}
       </div>
-
-      {/* Bottom Wave */}
     </div>
   );
 }
 
-// --- Default export with Suspense wrapper ---
+// --- Default export with Suspense wrapper (Unchanged) ---
 export default function SignInPage() {
   return (
     <React.Suspense
@@ -226,7 +351,7 @@ export default function SignInPage() {
   );
 }
 
-// --- Spinner component ---
+// --- Spinner component (Unchanged) ---
 function Spinner() {
   return (
     <svg

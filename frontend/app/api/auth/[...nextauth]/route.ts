@@ -27,8 +27,6 @@ export const authOptions: NextAuthOptions = {
 
           const siwe = new SiweMessage(JSON.parse(credentials.message || "{}"));
 
-          // **FIX: Get nonce from the SIWE message itself**
-          // The client sends the nonce as part of the SIWE message
           const nonce = siwe.nonce;
 
           if (!nonce) {
@@ -42,7 +40,7 @@ export const authOptions: NextAuthOptions = {
           const result = await siwe.verify({
             signature: credentials.signature || "",
             domain: nextAuthUrl.host,
-            nonce: nonce, // Use the nonce from the SIWE message
+            nonce: nonce, 
           });
 
           if (!result.success) {
@@ -70,25 +68,19 @@ export const authOptions: NextAuthOptions = {
             return user;
           }
 
-          // No account found, create a new user and link the wallet
-          const user = await prisma.user.create({
-            data: {
-              displayName: `User ${walletAddress.substring(
-                0,
-                6
-              )}...${walletAddress.substring(walletAddress.length - 4)}`,
-              walletAddress: walletAddress,
-              accounts: {
-                create: {
-                  provider: "ethereum",
-                  providerAccountId: walletAddress,
-                  type: "credentials",
-                },
-              },
-            },
-          });
+          // --- ⬇️ THIS IS THE FIX ⬇️ ---
+          //
+          // If no account is found, we return null.
+          // This stops the wallet-based "signup" and forces
+          // users to create an account with Google first.
+          //
+          console.warn(
+            `Wallet login failed: Wallet ${walletAddress} is not linked to any existing user account.`
+          );
+          return null;
+          //
+          // --- ⬆️ END OF FIX ⬆️ ---
 
-          return user;
         } catch (e) {
           console.error("Authorize error:", e);
           return null;
@@ -114,6 +106,8 @@ export const authOptions: NextAuthOptions = {
             displayName: true,
             walletAddress: true,
             image: true,
+            // Add any other user fields you need in the session
+            // e.g., role, firstName, etc.
           },
         });
 

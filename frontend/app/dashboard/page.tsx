@@ -41,9 +41,8 @@ export default function UserDashboard() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // const [debugInfo, setDebugInfo] = useState<any>(null); // Removed Debug Info
   const [isLinkingWallet, setIsLinkingWallet] = useState(false);
-  const [isLinkingGoogle, setIsLinkingGoogle] = useState(false);
+  // const [isLinkingGoogle, setIsLinkingGoogle] = useState(false); // Removed
   const [linkMessage, setLinkMessage] = useState<string | null>(null);
 
   // Safe access to session data with null checks
@@ -51,7 +50,7 @@ export default function UserDashboard() {
   const userName = session?.user?.name;
   const linkedWallet = session?.user ? (session.user as any).walletAddress : null;
   const isWalletLinked = Boolean(linkedWallet);
-  const isGoogleLinked = Boolean(userEmail);
+  // const isGoogleLinked = Boolean(userEmail); // Removed - always true
 
   // Helper function to truncate wallet addresses
   const truncateAddress = (addr: string | null) => {
@@ -103,14 +102,6 @@ export default function UserDashboard() {
         }
 
         setBookings(data);
-        /* Removed Debug Info
-        setDebugInfo({
-          wallet: walletToUse,
-          email: userEmail,
-          bookingsCount: data.length,
-          timestamp: new Date().toISOString(),
-        });
-        */
       } catch (err: any) {
         console.error("[Dashboard] Error:", err);
         setError(err.message);
@@ -212,33 +203,14 @@ export default function UserDashboard() {
     }
   };
 
-  const handleLinkGoogle = async () => {
-    if (!session?.user) {
-      setLinkMessage("Please sign in with wallet first");
-      return;
-    }
+  // --- REMOVED handleLinkGoogle function ---
 
-    setIsLinkingGoogle(true);
-    setLinkMessage(null);
-    setError(null);
-
-    try {
-      // Store current session info to merge later
-      const currentUserId = session.user.id;
-
-      // Redirect to Google OAuth with a special state parameter
-      await signIn("google", {
-        callbackUrl: `/dashboard?linkGoogle=true&userId=${currentUserId}`,
-      });
-    } catch (err: any) {
-      console.error("Google linking error:", err);
-      setError(err.message || "Failed to link Google account");
-      setIsLinkingGoogle(false);
-    }
-  };
+  // --- REMOVED useEffect for Google linking ---
 
   const handleUnlinkWallet = async () => {
-    if (!confirm("Are you sure you want to unlink your wallet?")) return;
+    // We no longer need to check if Google is linked,
+    // because with the new flow, it ALWAYS is.
+    if (!confirm("Are you sure you want to unlink your wallet? You will still be able to log in with your Google account.")) return;
 
     try {
       const res = await fetch("/api/user/unlink-wallet", {
@@ -258,30 +230,7 @@ export default function UserDashboard() {
     }
   };
 
-  const handleUnlinkGoogle = async () => {
-    if (
-      !confirm(
-        "Are you sure you want to unlink your Google account? You'll need your wallet to sign in."
-      )
-    )
-      return;
-
-    try {
-      const res = await fetch("/api/user/unlink-google", {
-        method: "POST",
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to unlink Google account");
-      }
-
-      setLinkMessage("Google account unlinked successfully");
-      setTimeout(() => window.location.reload(), 1500);
-    } catch (err: any) {
-      setError(err.message);
-    }
-  };
+  // --- REMOVED handleUnlinkGoogle function ---
 
   const getStatusInfo = (status: string, expiresAt: string | null) => {
     const now = new Date();
@@ -396,60 +345,32 @@ export default function UserDashboard() {
 
         {/* Account Connections */}
         <div className="grid md:grid-cols-2 gap-4 mb-6">
-          {/* Google Connection Card */}
+          {/* --- MODIFIED: Google Connection Card (Static) --- */}
           <div className="bg-gradient-to-br from-red-50 to-orange-50 p-6 rounded-xl border-2 border-red-200">
             <h3 className="text-lg font-semibold mb-3 text-gray-900 flex items-center gap-2">
               <span className="text-2xl">🔐</span> Google Account
             </h3>
-
-            {isGoogleLinked ? (
-              <div className="space-y-3">
-                <div className="flex items-start gap-2">
-                  <span className="text-green-600 font-semibold mt-1">✅</span>
-                  <div className="flex-1">
-                    <div className="text-sm text-gray-600 mb-1">
-                      Linked Email:
-                    </div>
-                    <div className="bg-white px-3 py-2 rounded text-sm font-medium break-all">
-                      {userEmail}
-                    </div>
+            <div className="space-y-3">
+              <div className="flex items-start gap-2">
+                <span className="text-green-600 font-semibold mt-1">✅</span>
+                <div className="flex-1">
+                  <div className="text-sm text-gray-600 mb-1">
+                    Primary Account:
+                  </div>
+                  <div className="bg-white px-3 py-2 rounded text-sm font-medium break-all">
+                    {userEmail}
                   </div>
                 </div>
-                <button
-                  onClick={handleUnlinkGoogle}
-                  className="py-2 px-4 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors text-sm font-medium w-full"
-                >
-                  Unlink Google
-                </button>
               </div>
-            ) : (
-              <div className="space-y-3">
-                <p className="text-gray-700 text-sm mb-3">
-                  Link your Google account for easy sign-in and email
-                  notifications.
-                </p>
-                <button
-                  onClick={handleLinkGoogle}
-                  disabled={isLinkingGoogle}
-                  className="w-full py-2 px-4 bg-white border-2 border-red-300 text-gray-800 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm flex items-center justify-center gap-2"
-                >
-                  {isLinkingGoogle ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-gray-400 border-t-red-600 rounded-full animate-spin"></div>
-                      Linking...
-                    </>
-                  ) : (
-                    <>
-                      <span>📧</span>
-                      Link Google Account
-                    </>
-                  )}
-                </button>
-              </div>
-            )}
+              <p className="text-gray-700 text-sm">
+                This is your primary account for signing in.
+              </p>
+            </div>
           </div>
+          {/* --- END MODIFICATION --- */}
 
-          {/* Wallet Connection Card */}
+
+          {/* Wallet Connection Card (Unchanged) */}
           <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-xl border-2 border-blue-200">
             <h3 className="text-lg font-semibold mb-3 text-gray-900 flex items-center gap-2">
               <span className="text-2xl">💼</span> Wallet
@@ -499,7 +420,7 @@ export default function UserDashboard() {
           </div>
         </div>
 
-        {/* ===== ✅ NEW UPGRADED WARNING BLOCK START ===== */}
+        {/* Wallet Mismatch Warning (Unchanged) */}
         {isWalletMismatched && (
           <div className="mb-6 p-6 bg-gradient-to-br from-red-50 to-orange-50 rounded-xl border-2 border-red-200">
             <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
@@ -536,9 +457,8 @@ export default function UserDashboard() {
             </p>
           </div>
         )}
-        {/* ===== ✅ NEW UPGRADED WARNING BLOCK END ===== */}
 
-        {/* Status Messages */}
+        {/* Status Messages (Unchanged) */}
         {linkMessage && (
           <div className="mb-4 p-4 bg-green-50 border-2 border-green-200 text-green-800 rounded-lg">
             {linkMessage}
@@ -549,11 +469,9 @@ export default function UserDashboard() {
             <strong>Error:</strong> {error}
           </div>
         )}
-
-        {/* Debug Info Removed */}
       </div>
 
-      {/* Bookings Section */}
+      {/* Bookings Section (Unchanged) */}
       <h2 className="text-2xl font-bold mb-5 text-gray-900">My Applications</h2>
 
       {loading ? (
