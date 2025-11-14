@@ -1,355 +1,485 @@
+// File: PaymentPage.tsx (Design reverted, logic preserved)
 "use client";
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
-import { useAccount, useSendTransaction } from "wagmi";
+import { useAccount, useSendTransaction, useSwitchChain } from "wagmi";
 import { parseUnits, encodeFunctionData } from "viem";
 import { ConnectKitButton } from "connectkit";
 import { erc20Abi } from "@/lib/erc20abi";
-import { chainConfig, treasuryAddress } from "@/lib/config";
+import { 
+  chainConfig, 
+  treasuryAddress, 
+  getSupportedTokens, 
+  getChainName,
+  SUPPORTED_CHAINS 
+} from "@/lib/config";
 
-// Define the shape of the booking data we fetch
+// --- Type Definitions (Updated) ---
 type BookingDetails = {
-  bookingId: string;
-  status: "PENDING" | "CONFIRMED" | "EXPIRED" | "FAILED" | "WAITLISTED";
-  expiresAt: string;
-  txHash: string | null;
-  // ✅ Add payment fields from booking
-  paymentToken: "USDC" | "USDT" | null;
-  paymentAmount: number | null;
-  chainId: number | null;
-  stay: {
-    title: string;
-    priceUSDC: number;
-    priceUSDT: number;
-  };
+  bookingId: string;
+  status: "PENDING" | "CONFIRMED" | "EXPIRED" | "FAILED" | "WAITLISTED";
+  expiresAt: string;
+  txHash: string | null;
+  paymentToken: "USDC" | "USDT" | null;
+  paymentAmount: number | null;
+  chainId: number | null;
+  // Fields added for room pricing
+  selectedRoomPriceUSDC: number | null; 
+  selectedRoomPriceUSDT: number | null;
+  stay: {
+    title: string;
+    priceUSDC: number;
+    priceUSDT: number;
+  };
 };
 
 type PaymentStatus =
-  | "loading"
-  | "ready"
-  | "sending"
-  | "verifying"
-  | "confirmed"
-  | "error";
+  | "loading"
+  | "ready"
+  | "sending"
+  | "verifying"
+  | "confirmed"
+  | "error";
 
 export default function PaymentPage() {
-  const params = useParams();
-  const bookingId = params.bookingId as string;
+  const params = useParams();
+  const bookingId = params.bookingId as string;
 
-  const { address, isConnected, chainId: walletChainId } = useAccount();
-  const { data: txHash, sendTransactionAsync } = useSendTransaction();
+  const { address, isConnected, chainId: walletChainId } = useAccount();
+  const { sendTransactionAsync } = useSendTransaction();
+  const { switchChain } = useSwitchChain();
 
-  const [booking, setBooking] = useState<BookingDetails | null>(null);
-  const [paymentToken, setPaymentToken] = useState<"USDC" | "USDT">("USDC");
-  const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<PaymentStatus>("loading");
+  const [booking, setBooking] = useState<BookingDetails | null>(null);
+  const [selectedChain, setSelectedChain] = useState<number>(42161); // Default Arbitrum
+  const [selectedToken, setSelectedToken] = useState<"USDC" | "USDT">("USDC");
+  const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<PaymentStatus>("loading");
 
-  // Fetch booking details on load
-  useEffect(() => {
-    if (!bookingId) return;
+  // Fetch booking details
+  useEffect(() => {
+    if (!bookingId) return;
 
-    async function fetchBooking() {
-      try {
-        setStatus("loading");
-        setError(null);
-        const res = await fetch(`/api/bookings/${bookingId}`);
-        if (!res.ok) {
-          const { error } = await res.json();
-          throw new Error(error || "Booking not found");
-        }
+    async function fetchBooking() {
+      try {
+        setStatus("loading");
+        setError(null);
+        const res = await fetch(`/api/bookings/${bookingId}`);
+        
+        if (!res.ok) {
+          const { error } = await res.json();
+          throw new Error(error || "Booking not found");
+        }
 
-        const data: BookingDetails = await res.json();
-        setBooking(data);
+        const data: BookingDetails = await res.json();
+        setBooking(data);
 
-        // ✅ Set payment token from booking if available
-        if (data.paymentToken) {
-          setPaymentToken(data.paymentToken);
-        }
-
-        // Set initial status based on fetched data
-        if (data.status === "CONFIRMED") {
-          setStatus("confirmed");
-        } else if (data.status === "PENDING") {
-          // ✅ Check if payment details are configured
-          if (!data.paymentToken || !data.paymentAmount) {
-            setError("Payment details are not configured for this booking. Please contact support.");
-            setStatus("error");
-          } else {
+        // Handle FAILED/EXPIRED status from initial fetch
+        if (data.status === "FAILED" || data.status === "EXPIRED") {
+            setError(`Payment ${data.status.toLowerCase()}. Please retry.`);
             setStatus("ready");
-          }
-        } else {
-          setError(`This booking is not pending. Status: ${data.status}`);
-          setStatus("error");
+            // Treat payment as unlocked for retry flow on front-end
+            data.paymentToken = null;
+            data.paymentAmount = null;
         }
-      } catch (err: any) {
-        setError(err.message);
-        setStatus("error");
-      }
-    }
 
-    fetchBooking();
-  }, [bookingId]);
+        // Only apply chain default on initial load
+        if (data.chainId) setSelectedChain(data.chainId);
 
-  // Poll for status updates after submitting
-  useEffect(() => {
-    if (status !== "verifying" || !bookingId) return;
+        if (data.status === "CONFIRMED") {
+          // Payment is complete, use confirmed values
+          if (data.paymentToken) setSelectedToken(data.paymentToken);
+          setStatus("confirmed");
+        } else if (data.status === "PENDING") {
+          // Payment is locked ONLY if paymentToken is set in DB
+          if (data.paymentToken) {
+            // Payment details are locked in DB, enforce them
+            setSelectedToken(data.paymentToken);
+          } else {
+            // Payment NOT locked yet - user is free to choose
+            // Just ensure the currently selected token is supported on the selected chain
+            const supported = getSupportedTokens(data.chainId || selectedChain);
+            if (!supported.includes(selectedToken)) {
+              // Current selection not supported on this chain, pick first available
+              setSelectedToken(supported[0] as "USDC" | "USDT");
+            }
+            // Otherwise, keep user's current selection
+          }
+          setStatus("ready");
+        } else {
+          setError(`This booking is not pending. Status: ${data.status}`);
+          setStatus("error");
+        }
+      } catch (err: any) {
+        setError(err.message);
+        setStatus("error");
+      }
+    }
 
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/bookings/status/${bookingId}`);
-        const data = await res.json();
-        if (data.status === "CONFIRMED") {
-          setStatus("confirmed");
-          clearInterval(interval);
-        } else if (data.status === "FAILED" || data.status === "EXPIRED") {
-          setStatus("ready");
-          setError(`Payment ${data.status.toLowerCase()}`);
-          clearInterval(interval);
-        }
-      } catch (err) {
-        console.error("Polling error:", err);
-      }
-    }, 3000);
+    fetchBooking();
+  }, [bookingId]); 
 
-    return () => clearInterval(interval);
-  }, [status, bookingId]);
+  // Poll for status updates (CRITICAL LOGIC PRESERVED)
+  useEffect(() => {
+    if (status !== "verifying" || !bookingId) return;
 
-  const handlePay = async () => {
-    if (!booking || !address || !isConnected) return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/bookings/status/${bookingId}`);
+        const data = await res.json();
+        
+        if (data.status === "CONFIRMED") {
+          setStatus("confirmed");
+          clearInterval(interval);
+        } else if (data.status === "FAILED" || data.status === "EXPIRED") {
+          setStatus("ready");
+          setError(`Payment ${data.status.toLowerCase()}. Please retry.`);
+          // CRITICAL FIX: Unlock payment options in state after failure
+          setBooking(prev => prev ? ({ 
+            ...prev, 
+            paymentToken: null, 
+            paymentAmount: null, 
+            txHash: null 
+          }) : null); 
+          clearInterval(interval);
+        }
+      } catch (err) {
+        console.error("Polling error:", err);
+      }
+    }, 3000);
 
-    setError(null);
-    setStatus("sending");
+    return () => clearInterval(interval);
+  }, [status, bookingId]);
 
-    try {
-      // ✅ Use booking's payment amount instead of stay prices
-      if (!booking.paymentAmount || !booking.paymentToken) {
-        throw new Error("Payment details are not configured for this booking");
-      }
+  const handlePay = async () => {
+    if (!booking || !address || !isConnected) return;
 
-      const amount = booking.paymentAmount;
-      const token = booking.paymentToken;
-      
-      // Use booking's chainId or default to BSC Testnet
-      const targetChainId = booking.chainId || 97;
-      const bscConfig = chainConfig[targetChainId];
-      
-      if (!bscConfig) {
-        throw new Error("Chain configuration not found");
-      }
-      
-      const tokenInfo = bscConfig.tokens[token];
+    setError(null);
+    setStatus("sending");
 
-      if (!tokenInfo) {
-        throw new Error(`Token ${token} not supported on this chain`);
-      }
+    try {
+      // ============================================
+      // Determine the exact amount based on SELECTED token AND room price
+      // This ensures we use the room-specific price if available.
+      // Note: The issue with 0.01 vs 1.0 is in the backend/data layer, 
+      // but we ensure the front-end uses the locked/expected value if available.
+      // ============================================
+      const amount = selectedToken === "USDC" 
+        ? (booking.selectedRoomPriceUSDC || booking.stay.priceUSDC) 
+        : (booking.selectedRoomPriceUSDT || booking.stay.priceUSDT);
 
-      if (walletChainId !== bscConfig.chainId) {
-        throw new Error(`Please switch your wallet to ${bscConfig.name} (Chain ID: ${bscConfig.chainId})`);
-      }
+      const chain = chainConfig[selectedChain];
+      
+      if (!chain) {
+        throw new Error("Selected chain not supported");
+      }
 
-      const amountBaseUnits = parseUnits(amount.toString(), tokenInfo.decimals);
+      // Check if token is supported on selected chain
+      const tokenInfo = chain.tokens[selectedToken];
+      if (!tokenInfo) {
+        throw new Error(`${selectedToken} not supported on ${chain.name}`);
+      }
 
-      // 2. Send the transaction
-      const tx = await sendTransactionAsync({
-        to: tokenInfo.address as `0x${string}`,
-        data: encodeFunctionData({
-          abi: erc20Abi,
-          functionName: "transfer",
-          args: [treasuryAddress as `0x${string}`, amountBaseUnits],
-        }),
-      });
+      // Validate treasury address
+      console.log("Treasury address:", treasuryAddress);
+      if (!treasuryAddress || treasuryAddress === "0x0000000000000000000000000000000000000000") {
+        throw new Error("Invalid treasury address configuration");
+      }
 
-      // 3. Submit for verification
-      setStatus("verifying");
-      const res = await fetch("/api/payments/submit-payment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          bookingId: booking.bookingId,
-          txHash: tx,
-          chainId: bscConfig.chainId,
-        }),
-      });
+      // 1. 🔒 CRITICAL STEP: Lock the selected payment details in the database
+      console.log("Locking payment details in database...");
+      const lockRes = await fetch("/api/bookings/lock-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bookingId: booking.bookingId,
+          paymentToken: selectedToken,
+          paymentAmount: amount, // Use the dynamically calculated amount
+          chainId: selectedChain,
+        }),
+      });
+      
+      if (!lockRes.ok) {
+        const { error } = await lockRes.json();
+        throw new Error(error || "Failed to lock payment details. Please refresh.");
+      }
+      console.log("Payment details locked successfully.");
 
-      if (!res.ok) {
-        const { error } = await res.json();
-        throw new Error(error || "Failed to submit transaction");
-      }
-    } catch (err: any) {
-      console.error("Payment error:", err);
-      setError(err.message);
-      setStatus("ready");
-    }
-  };
+      // Optimistically update the booking state with the locked details
+      setBooking(prev => prev ? ({ 
+        ...prev, 
+        paymentToken: selectedToken, 
+        paymentAmount: amount, 
+        chainId: selectedChain 
+      }) : null);
 
-  // --- Render different states ---
+      // Switch network if needed
+      if (walletChainId !== selectedChain) {
+        console.log(`Switching to chain ${selectedChain}...`);
+        await switchChain({ chainId: selectedChain });
+        // Wait for network switch
+        await new Promise(resolve => setTimeout(resolve, 1500));
+      }
 
-  if (status === "loading") {
-    return <div style={styles.container}>Loading booking details...</div>;
-  }
+      const amountBaseUnits = parseUnits(
+        amount.toString(),
+        tokenInfo.decimals
+      );
 
-  if (status === "error") {
-    return (
-      <div style={styles.container}>
-        <h2>Error</h2>
-        <p style={styles.error}>{error || "An unknown error occurred."}</p>
-      </div>
-    );
-  }
+      console.log("Payment details:", {
+        token: tokenInfo.address,
+        to: treasuryAddress,
+        amount: amountBaseUnits.toString(),
+        decimals: tokenInfo.decimals,
+      });
 
-  if (!booking) {
-    return <div style={styles.container}>Booking not found.</div>;
-  }
+      // Encode transfer function with correct treasury address
+      const data = encodeFunctionData({
+        abi: erc20Abi,
+        functionName: "transfer",
+        args: [treasuryAddress as `0x${string}`, amountBaseUnits],
+      });
 
-  if (status === "confirmed" || booking.status === "CONFIRMED") {
-    return (
-      <div style={styles.container}>
-        <h2>✅ Payment Confirmed!</h2>
-        <p>
-          You're all set! Your spot for <strong>{booking.stay.title}</strong> is
-          confirmed.
-        </p>
-        {booking.txHash && (
-          <p style={{ wordBreak: "break-all", fontSize: "0.9em", color: "#666" }}>
-            Transaction: {booking.txHash}
-          </p>
-        )}
-        <a href="/" style={styles.homeButton}>
-          Back to Home
-        </a>
-      </div>
-    );
-  }
+      console.log("Transaction data:", data);
 
-  // ✅ Use booking's payment amount or fallback to stay prices
-  const displayAmount = booking.paymentAmount || 
-    (paymentToken === "USDC" ? booking.stay.priceUSDC : booking.stay.priceUSDT);
+      // Send transaction
+      const tx = await sendTransactionAsync({
+        to: tokenInfo.address as `0x${string}`,
+        data: data,
+      });
 
-  return (
-    <div style={styles.container}>
-      <h2>Confirm Your Spot</h2>
-      <p>
-        Pay to confirm your booking for <strong>{booking.stay.title}</strong>
-      </p>
+      console.log("Transaction sent:", tx);
 
-      {booking.expiresAt && (
-        <p style={{ fontSize: "0.9em", color: "#666" }}>
-          Payment session expires: {new Date(booking.expiresAt).toLocaleString()}
-        </p>
-      )}
+      // Submit for verification
+      setStatus("verifying");
+      const res = await fetch("/api/payments/submit-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bookingId: booking.bookingId,
+          txHash: tx,
+          chainId: selectedChain,
+          paymentToken: selectedToken, 
+        }),
+      });
 
-      <div style={styles.paymentBox}>
-        {/* Only show token selector if payment token is not pre-set */}
-        {!booking.paymentToken ? (
-          <select
-            value={paymentToken}
-            onChange={(e) => setPaymentToken(e.target.value as "USDC" | "USDT")}
-            style={styles.select}
-          >
-            <option value="USDC">USDC</option>
-            <option value="USDT">USDT</option>
-          </select>
-        ) : (
-          <div style={styles.tokenDisplay}>{booking.paymentToken}</div>
-        )}
-        <div style={styles.price}>${displayAmount}</div>
-      </div>
+      if (!res.ok) {
+        const { error } = await res.json();
+        throw new Error(error || "Failed to submit transaction");
+      }
 
-      {!isConnected ? (
-        <div style={{ textAlign: "center", marginTop: "20px" }}>
-          <ConnectKitButton />
-        </div>
-      ) : (
-        <button
-          onClick={handlePay}
-          disabled={status === "sending" || status === "verifying"}
-          style={{
-            ...styles.button,
-            ...(status === "sending" || status === "verifying" ? styles.buttonDisabled : {}),
-          }}
-        >
-          {status === "sending" && "Check your wallet..."}
-          {status === "verifying" && "Verifying payment..."}
-          {status === "ready" && `Pay $${displayAmount} with ${booking.paymentToken || paymentToken}`}
-        </button>
-      )}
+      console.log("Transaction submitted for verification");
+    } catch (err: any) {
+      console.error("Payment error:", err);
+      setError(err.message || "Payment failed");
+      setStatus("ready");
+    }
+  };
 
-      {error && <div style={styles.error}>{error}</div>}
-    </div>
-  );
+  // Render states
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center p-10">
+          <div className="w-12 h-12 border-4 border-gray-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Loading booking details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Reverted design for Error state
+  if (status === "error") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="bg-white p-8 rounded-xl shadow-xl text-center max-w-sm w-full">
+          <h2 className="text-3xl font-bold text-red-600 mb-4">⚠️ Payment Error</h2>
+          <p className="text-gray-700 mb-6">{error || "An unknown error occurred."}</p>
+          <a href="/dashboard" className="inline-block bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-blue-700 transition duration-150">
+            Return to Dashboard
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  if (!booking) {
+    return <div className="text-center p-8">Booking not found.</div>;
+  }
+
+  // Reverted design for Confirmed state
+  if (status === "confirmed") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="bg-white p-10 rounded-xl shadow-xl text-center max-w-md w-full">
+          <div className="text-6xl mb-4">✅</div>
+          <h2 className="text-3xl font-bold text-green-600 mb-2">Payment Confirmed!</h2>
+          <p className="text-gray-600 mb-6">
+            Your spot for <strong className="font-semibold text-gray-800">{booking.stay.title}</strong> is confirmed.
+          </p>
+          {booking.txHash && (
+            <a
+              href={`${chainConfig[selectedChain]?.blockExplorer}/tx/${booking.txHash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block mt-4 py-2 px-4 bg-blue-50 text-blue-600 text-sm font-medium rounded-lg hover:bg-blue-100 transition duration-150"
+            >
+              View Transaction ↗
+            </a>
+          )}
+          <a href="/dashboard" className="block mt-6 bg-green-500 text-white font-semibold py-3 px-6 rounded-lg hover:bg-green-600 transition duration-150">
+            Back to Dashboard
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  // Use the locked amount/token if available, otherwise use user selection
+  const displayAmount = booking.paymentAmount 
+    ? booking.paymentAmount 
+    // If not locked, dynamically calculate amount based on user selection AND room price
+    : selectedToken === "USDC" 
+      ? (booking.selectedRoomPriceUSDC || booking.stay.priceUSDC) 
+      : (booking.selectedRoomPriceUSDT || booking.stay.priceUSDT);
+
+  // If the payment details are already locked, don't allow changing the token
+  const isPaymentLocked = !!booking.paymentToken; 
+  
+  const supportedTokens = getSupportedTokens(selectedChain);
+  const isWrongNetwork = walletChainId !== selectedChain;
+
+  return (
+    <div className="font-sans max-w-xl mx-auto my-10 px-4">
+      <div className="bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
+        <h2 className="text-3xl font-extrabold text-gray-900 mb-2">Complete Your Payment</h2>
+        <p className="text-lg text-gray-600 mb-6">
+          Booking for <strong className="font-semibold">{booking.stay.title}</strong>
+        </p>
+
+        {booking.expiresAt && (
+          <div className="p-3 bg-yellow-50 border border-yellow-300 text-yellow-800 text-sm rounded-lg mb-6 text-center">
+            ⏰ Payment expires:{" "}
+            <strong className="font-semibold">{new Date(booking.expiresAt).toLocaleString()}</strong>
+          </div>
+        )}
+
+        {/* Treasury Address Display */}
+        <div className="p-3 bg-blue-50 rounded-lg mb-6 text-xs">
+          <div className="text-blue-600 font-semibold mb-1">Payment Destination:</div>
+          <div className="font-mono text-gray-700 break-all">{treasuryAddress}</div>
+        </div>
+
+        {/* Chain Selection */}
+        <div className="mb-6">
+          <label className="block text-sm font-semibold text-gray-700 mb-3">Select Network</label>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {SUPPORTED_CHAINS.map((chainId) => (
+              <button
+                key={chainId}
+                onClick={() => {
+                  setSelectedChain(chainId);
+                  const tokens = getSupportedTokens(chainId);
+                  if (!tokens.includes(selectedToken)) {
+                    setSelectedToken(tokens[0] as "USDC" | "USDT");
+                  }
+                }}
+                className={`
+                  p-3 rounded-xl border-2 font-medium text-sm transition duration-150
+                  ${selectedChain === chainId
+                    ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-sm'
+                    : 'border-gray-200 bg-white text-gray-800 hover:border-gray-400'
+                  }
+                `}
+              >
+                {getChainName(chainId)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Token Selection */}
+        <div className="mb-6">
+          <label className="block text-sm font-semibold text-gray-700 mb-3">Select Token</label>
+          <div className="flex space-x-3">
+            {supportedTokens.map((token) => (
+              <button
+                key={token}
+                onClick={() => setSelectedToken(token as "USDC" | "USDT")}
+                disabled={isPaymentLocked && selectedToken !== token}
+                className={`
+                  flex-1 p-4 rounded-xl border-2 font-bold text-lg transition duration-150
+                  ${selectedToken === token
+                    ? 'border-green-500 bg-green-50 text-green-700 shadow-md'
+                    : 'border-gray-200 bg-white text-gray-800 hover:border-gray-400'
+                  }
+                  ${isPaymentLocked && selectedToken !== token ? 'opacity-50 cursor-not-allowed' : ''}
+                `}
+              >
+                {token}
+              </button>
+            ))}
+          </div>
+          {isPaymentLocked && (
+            <div className="mt-3 p-3 bg-yellow-50 border border-yellow-300 text-yellow-800 text-sm rounded-lg">
+              🔒 Payment locked to <strong className="font-semibold">{selectedToken}</strong>.
+            </div>
+          )}
+        </div>
+
+        {/* Amount Display */}
+        <div className="text-center p-6 bg-blue-50 rounded-xl mb-6 border border-blue-200">
+          <div className="text-xs text-blue-600 uppercase tracking-widest mb-1">Total Amount</div>
+          <div className="text-5xl font-extrabold text-blue-900">
+            ${displayAmount} <span className="text-3xl">{selectedToken}</span>
+          </div>
+          <div className="text-sm text-gray-500 mt-1">
+            on {getChainName(selectedChain)}
+          </div>
+        </div>
+
+        {/* Network Warning */}
+        {isConnected && isWrongNetwork && (
+          <div className="p-3 bg-red-100 border border-red-400 text-red-800 text-sm rounded-lg mb-4 text-center">
+            ⚠️ Please switch to <strong className="font-semibold">{getChainName(selectedChain)}</strong> in your wallet
+          </div>
+        )}
+
+        {/* Action Button */}
+        {!isConnected ? (
+          <div className="text-center mt-5">
+            <ConnectKitButton />
+          </div>
+        ) : (
+          <button
+            onClick={handlePay}
+            disabled={status === "sending" || status === "verifying" || !selectedToken}
+            className={`
+              w-full py-4 text-xl font-semibold rounded-xl transition duration-200 shadow-lg
+              ${status === "sending" || status === "verifying"
+                ? 'bg-gray-400 text-gray-700 cursor-not-allowed'
+                : 'bg-blue-600 text-white hover:bg-blue-700'
+              }
+            `}
+          >
+            {status === "sending" && "💼 Check your wallet..."}
+            {status === "verifying" && "🔍 Verifying payment..."}
+            {status === "ready" &&
+              `💳 Pay $${displayAmount} ${selectedToken}`}
+          </button>
+        )}
+
+        {error && (
+          <div className="mt-4 p-3 bg-red-50 border border-red-400 text-red-700 text-sm rounded-lg">
+            {error}
+          </div>
+        )}
+
+        {/* Security Info */}
+        <div className="text-center text-xs text-gray-500 mt-4">
+          🔒 Secure payment • Funds go directly to treasury address
+        </div>
+      </div>
+    </div>
+  );
 }
-
-// --- Basic Styling ---
-const styles = {
-  container: {
-    fontFamily: "Arial, sans-serif",
-    maxWidth: "600px",
-    margin: "40px auto",
-    padding: "20px",
-  },
-  paymentBox: {
-    display: "flex",
-    border: "1px solid #ccc",
-    borderRadius: "8px",
-    margin: "20px 0",
-    overflow: "hidden",
-  },
-  select: {
-    padding: "15px",
-    fontSize: "1.2em",
-    border: "none",
-    borderRight: "1px solid #ccc",
-    backgroundColor: "white",
-    cursor: "pointer",
-  },
-  tokenDisplay: {
-    padding: "15px",
-    fontSize: "1.2em",
-    fontWeight: "600",
-    borderRight: "1px solid #ccc",
-    backgroundColor: "#f5f5f5",
-  },
-  price: {
-    padding: "15px",
-    fontSize: "1.5em",
-    fontWeight: "bold",
-    flexGrow: 1,
-    textAlign: "center" as const,
-  },
-  error: {
-    color: "#ef4444",
-    fontSize: "0.9em",
-    marginTop: "10px",
-    padding: "12px",
-    backgroundColor: "#fee",
-    borderRadius: "6px",
-    border: "1px solid #fcc",
-  },
-  button: {
-    padding: "14px 20px",
-    fontSize: "1.1em",
-    backgroundColor: "#0070f3",
-    color: "white",
-    border: "none",
-    borderRadius: "8px",
-    cursor: "pointer",
-    width: "100%",
-    fontWeight: "600",
-    transition: "background-color 0.2s",
-  },
-  buttonDisabled: {
-    backgroundColor: "#ccc",
-    cursor: "not-allowed",
-  },
-  homeButton: {
-    display: "inline-block",
-    marginTop: "20px",
-    padding: "12px 24px",
-    backgroundColor: "#10b981",
-    color: "white",
-    textDecoration: "none",
-    borderRadius: "8px",
-    fontWeight: "600",
-  },
-} as const;

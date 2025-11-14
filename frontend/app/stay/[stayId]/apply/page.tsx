@@ -1,3 +1,4 @@
+// File: app/stay/[stayId]/apply/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -22,16 +23,16 @@ import {
   LogIn,
   Phone,
   Users as UsersIcon,
+  DollarSign, // New Icon for currency
 } from "lucide-react";
 
-// ✅ FIXED SCHEMA - Removed required_error from enum
+// ✅ FIXED ZOD SCHEMA with Refinement
 const applySchema = z.object({
   displayName: z.string().min(3, "Name is required"),
   email: z.string().email("Invalid email address"),
   firstName: z.string().optional(),
   lastName: z.string().optional(),
 
-  // NEW REQUIRED FIELDS - Fixed enum validation
   gender: z.enum(["Male", "Female", "Other", "Prefer not to say"], {
     message: "Please select your gender",
   }),
@@ -41,18 +42,33 @@ const applySchema = z.object({
     .max(120, "Invalid age"),
   mobileNumber: z.string().min(10, "Valid mobile number is required"),
 
-  // ROOM SELECTION (optional)
+  // ROOM SELECTION
   selectedRoomId: z.string().optional(),
+  // CURRENCY SELECTION
+  selectedCurrency: z.string().optional(), 
 
   role: z.string().optional(),
   socialTwitter: z.string().optional(),
   socialLinkedin: z.string().optional(),
   socialTelegram: z.string().optional(),
-});
+}).refine(
+    (data) => {
+        // If a room is selected (not empty string), check for currency selection
+        if (data.selectedRoomId && data.selectedRoomId !== "") {
+            return ["USDC", "USDT"].includes(data.selectedCurrency as string);
+        }
+        // If no room is selected, currency can be anything (including undefined/empty)
+        return true;
+    },
+    {
+        message: "Please select a payment currency (USDC or USDT) for your preferred room.",
+        path: ["selectedCurrency"], 
+    }
+);
 
 type ApplyFormInputs = z.infer<typeof applySchema>;
 
-// Wave Divider Component
+// Wave Divider Component (Kept as is)
 const WaveDivider: React.FC<{ colorClassName: string; inverted?: boolean }> = ({
   colorClassName,
   inverted = false,
@@ -81,7 +97,6 @@ export default function ApplyPage() {
 
   const [apiError, setApiError] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
-  const [selectedRoomId, setSelectedRoomId] = useState<string>("");
   const [stayRooms, setStayRooms] = useState<any[]>([]);
 
   const {
@@ -90,19 +105,41 @@ export default function ApplyPage() {
     formState: { errors, isSubmitting },
     reset,
     watch,
-    setValue,
+    setValue, 
   } = useForm<ApplyFormInputs>({
     resolver: zodResolver(applySchema),
+    defaultValues: {
+        selectedRoomId: "", 
+        selectedCurrency: "", // Initialize selected currency
+    },
   });
 
-  // Fetch stay data to get rooms
+  // Watch for the current values
+  const currentSelectedRoomId = watch("selectedRoomId");
+  const currentSelectedCurrency = watch("selectedCurrency");
+
+  // Custom function to handle combined room and currency selection
+  const handleRoomSelection = (roomId: string, currency: "USDC" | "USDT" | null) => {
+    // If selecting "No Preference"
+    if (!roomId) {
+      setValue("selectedRoomId", "");
+      setValue("selectedCurrency", "");
+    } else {
+      // If clicking on a new room/currency combo
+      setValue("selectedRoomId", roomId);
+      setValue("selectedCurrency", currency || "", { shouldValidate: true });
+    }
+  };
+
+  // Fetch stay data to get rooms (kept as is)
   useEffect(() => {
     const fetchStayData = async () => {
       try {
         const response = await fetch(`/api/stays/${stayId}`);
         if (response.ok) {
           const data = await response.json();
-          setStayRooms(data.rooms || []);
+          // Assuming rooms now have priceUSDC and priceUSDT
+          setStayRooms(data.rooms?.filter((room: any) => room) || []);
         }
       } catch (error) {
         console.error("Error fetching stay data:", error);
@@ -114,43 +151,41 @@ export default function ApplyPage() {
     }
   }, [stayId]);
 
-  // Watch for room selection changes
-  useEffect(() => {
-    const subscription = watch((value, { name }) => {
-      if (name === "selectedRoomId") {
-        setSelectedRoomId(value.selectedRoomId || "");
-      }
-    });
-    return () => subscription.unsubscribe();
-  }, [watch]);
-
-  // Pre-fill form with session data
+  // Pre-fill form with session data (kept as is)
   useEffect(() => {
     if (session?.user) {
-      reset({
-        displayName: session.user.name || "",
-        email: session.user.email || "",
-        firstName: (session.user as any).firstName || "",
-        lastName: (session.user as any).lastName || "",
-        role: (session.user as any).role || "",
-        gender: (session.user as any).gender || undefined,
-        age: (session.user as any).age || undefined,
-        mobileNumber: (session.user as any).mobileNumber || "",
-        socialTwitter: (session.user as any).socialTwitter || "",
-        socialLinkedin: (session.user as any).socialLinkedin || "",
-        socialTelegram: (session.user as any).socialTelegram || "",
-      });
+        const sessionUser = session.user as any; 
+        
+        reset({
+            displayName: sessionUser.name || "",
+            email: sessionUser.email || "",
+            firstName: sessionUser.firstName || "",
+            lastName: sessionUser.lastName || "",
+            role: sessionUser.role || "",
+            gender: applySchema.shape.gender.safeParse(sessionUser.gender).success
+                ? sessionUser.gender
+                : undefined, 
+            age: !isNaN(parseFloat(sessionUser.age)) && isFinite(sessionUser.age) 
+                ? Number(sessionUser.age) 
+                : undefined, 
+            mobileNumber: sessionUser.mobileNumber || "",
+            socialTwitter: sessionUser.socialTwitter || "",
+            socialLinkedin: sessionUser.socialLinkedin || "",
+            socialTelegram: sessionUser.socialTelegram || "",
+            // Reset room/currency on prefill
+            selectedRoomId: "",
+            selectedCurrency: "",
+        });
     }
   }, [session, reset]);
 
   const onSubmit: SubmitHandler<ApplyFormInputs> = async (data) => {
-    // Check authentication
+    // Authentication checks (kept as is)
     if (sessionStatus !== "authenticated") {
       setApiError("Please sign in to apply for this stay.");
       return;
     }
 
-    // Check wallet connection
     if (!isConnected || !address) {
       setApiError(
         "Please connect your wallet to complete your application. This is required for payment processing."
@@ -158,7 +193,6 @@ export default function ApplyPage() {
       return;
     }
 
-    // Validate stayId
     if (!stayId || stayId === "undefined") {
       setApiError("Invalid stay ID. Please check the URL and try again.");
       console.error("Invalid stayId:", stayId);
@@ -177,6 +211,8 @@ export default function ApplyPage() {
         body: JSON.stringify({
           ...data,
           walletAddress: address,
+          // If no room is selected, clear currency just in case
+          selectedCurrency: data.selectedRoomId ? data.selectedCurrency : null,
         }),
       });
 
@@ -198,7 +234,8 @@ export default function ApplyPage() {
     }
   };
 
-  // Loading state
+  // ... (Loading state and Success State kept as is)
+
   if (!stayId) {
     return (
       <div className="min-h-screen bg-[#f5f5f3] flex items-center justify-center">
@@ -210,7 +247,6 @@ export default function ApplyPage() {
     );
   }
 
-  // Success State
   if (isSuccess) {
     return (
       <div className="min-h-screen bg-[#E7E4DF]">
@@ -285,7 +321,7 @@ export default function ApplyPage() {
 
       {/* Form Section */}
       <section className="bg-[#172a46] md:px-80 mx-auto px-6 -mt-20 relative z-10 pb-20">
-        {/* Not Authenticated */}
+        {/* Authentication Handling (kept as is) */}
         {sessionStatus === "unauthenticated" && (
           <div className="bg-white rounded-3xl p-12 shadow-2xl text-center">
             <div className="w-20 h-20 bg-[#172a46] rounded-2xl flex items-center justify-center mx-auto mb-6">
@@ -308,7 +344,6 @@ export default function ApplyPage() {
           </div>
         )}
 
-        {/* Loading Authentication */}
         {sessionStatus === "loading" && (
           <div className="bg-white rounded-3xl p-12 shadow-2xl text-center">
             <div className="w-16 h-16 border-4 border-[#172a46] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
@@ -316,10 +351,9 @@ export default function ApplyPage() {
           </div>
         )}
 
-        {/* Authenticated - Show Form */}
         {sessionStatus === "authenticated" && (
           <div className="bg-white rounded-3xl shadow-2xl overflow-hidden">
-            {/* Authentication Status */}
+            {/* Authentication Status (kept as is) */}
             <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-b-2 border-green-200 p-6">
               <div className="flex items-center justify-center gap-3 flex-wrap mb-4">
                 <Check className="text-green-600" size={20} />
@@ -328,7 +362,7 @@ export default function ApplyPage() {
                 </span>
               </div>
 
-              {/* Wallet Connection Status */}
+              {/* Wallet Connection Status (kept as is) */}
               {isConnected && address ? (
                 <div className="flex items-center justify-center gap-3 flex-wrap text-sm">
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -362,7 +396,7 @@ export default function ApplyPage() {
               onSubmit={handleSubmit(onSubmit)}
               className="p-8 md:p-12 space-y-8"
             >
-              {/* Display Name */}
+              {/* Display Name, Email, Gender, Age, Mobile Number (kept as is) */}
               <div>
                 <label className="flex items-center gap-2 text-lg font-bold text-[#172a46] mb-3">
                   <User size={20} />
@@ -382,7 +416,6 @@ export default function ApplyPage() {
                 )}
               </div>
 
-              {/* Email */}
               <div>
                 <label className="flex items-center gap-2 text-lg font-bold text-[#172a46] mb-3">
                   <Mail size={20} />
@@ -405,7 +438,6 @@ export default function ApplyPage() {
                 </p>
               </div>
 
-              {/* ✅ NEW: Gender Selection */}
               <div>
                 <label className="flex items-center gap-2 text-lg font-bold text-[#172a46] mb-3">
                   Gender <span className="text-red-500">*</span>
@@ -428,7 +460,6 @@ export default function ApplyPage() {
                 )}
               </div>
 
-              {/* ✅ NEW: Age and Mobile Number Row */}
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
                   <label className="flex items-center gap-2 text-lg font-bold text-[#172a46] mb-3">
@@ -473,60 +504,135 @@ export default function ApplyPage() {
                 </div>
               </div>
 
-              {/* ✅ NEW: Room Selection */}
+              {/* ✅ UPDATED: Room & Currency Selection */}
               {stayRooms && stayRooms.length > 0 && (
                 <div>
                   <label className="flex items-center gap-2 text-lg font-bold text-[#172a46] mb-3">
                     <UsersIcon size={20} />
-                    Preferred Room (Optional)
+                    Preferred Room & Currency (Optional)
                   </label>
-                  <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-4">
                     {stayRooms.map((room: any) => (
-                      <label
+                      <div
                         key={room.id}
-                        className={`relative border-2 rounded-2xl p-5 cursor-pointer transition-all ${
-                          selectedRoomId === room.id
-                            ? "border-[#172a46] bg-blue-50"
+                        className={`border-2 rounded-2xl p-5 transition-all ${
+                          currentSelectedRoomId === room.id
+                            ? "border-[#172a46] bg-blue-50 shadow-md"
                             : "border-gray-200 hover:border-gray-300"
                         }`}
                       >
-                        <input
-                          type="radio"
-                          {...register("selectedRoomId")}
-                          value={room.id}
-                          className="sr-only"
-                        />
                         <div className="flex items-start justify-between mb-2">
                           <h4 className="font-bold text-[#172a46] text-lg">
                             {room.name}
                           </h4>
-                          <span className="text-lg font-bold text-[#172a46]">
-                            ${room.price}
-                          </span>
                         </div>
-                        <p className="text-sm text-gray-600 mb-2">
+
+                        <p className="text-sm text-gray-600 mb-3">
                           {room.description}
                         </p>
-                        <div className="flex items-center gap-2 text-sm text-gray-500">
-                          <UsersIcon size={16} />
-                          <span>Capacity: {room.capacity}</span>
+                        <div className="flex items-center gap-2 text-sm text-gray-500 mb-3">
+                            <UsersIcon size={16} />
+                            <span>Capacity: {room.capacity}</span>
                         </div>
-                        {selectedRoomId === room.id && (
-                          <div className="absolute top-3 right-3 w-6 h-6 bg-[#172a46] rounded-full flex items-center justify-center">
-                            <Check size={16} className="text-white" />
-                          </div>
-                        )}
-                      </label>
+
+                        {/* Currency Selection for the Room */}
+                        <div className="mt-4 border-t border-gray-200 pt-3">
+                            <p className="text-sm font-semibold text-gray-600 mb-2 flex items-center gap-1">
+                                <DollarSign size={16} /> Select Payment Currency:
+                            </p>
+                            <div className="flex gap-4">
+                                {/* USDC Option */}
+                                <label
+                                    className={`flex items-center justify-center p-3 flex-1 border-2 rounded-xl cursor-pointer transition-all ${
+                                        currentSelectedRoomId === room.id && currentSelectedCurrency === "USDC"
+                                            ? "border-green-600 bg-green-50"
+                                            : "border-gray-200 hover:border-gray-300"
+                                    }`}
+                                    onClick={() => handleRoomSelection(room.id, "USDC")}
+                                >
+                                    <input
+                                        type="radio"
+                                        name={`room_currency_${room.id}`}
+                                        className="sr-only"
+                                        checked={currentSelectedRoomId === room.id && currentSelectedCurrency === "USDC"}
+                                        readOnly
+                                    />
+                                    <div>
+                                        <div className="font-bold text-md text-green-700">{room.priceUSDC || room.price || 'N/A'} USDC</div>
+                                    </div>
+                                </label>
+
+                                {/* USDT Option */}
+                                <label
+                                    className={`flex items-center justify-center p-3 flex-1 border-2 rounded-xl cursor-pointer transition-all ${
+                                        currentSelectedRoomId === room.id && currentSelectedCurrency === "USDT"
+                                            ? "border-purple-600 bg-purple-50"
+                                            : "border-gray-200 hover:border-gray-300"
+                                    }`}
+                                    onClick={() => handleRoomSelection(room.id, "USDT")}
+                                >
+                                    <input
+                                        type="radio"
+                                        name={`room_currency_${room.id}`}
+                                        className="sr-only"
+                                        checked={currentSelectedRoomId === room.id && currentSelectedCurrency === "USDT"}
+                                        readOnly
+                                    />
+                                    <div>
+                                        <div className="font-bold text-md text-purple-700">{room.priceUSDT || room.price || 'N/A'} USDT</div>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                      </div>
                     ))}
+
+                    {/* No Room Preference Option */}
+                    <label
+                      className={`relative border-2 rounded-2xl p-5 cursor-pointer transition-all block ${
+                        currentSelectedRoomId === ""
+                          ? "border-gray-400 bg-gray-50 shadow-md"
+                          : "border-gray-200 hover:border-gray-300"
+                      }`}
+                      onClick={() => handleRoomSelection("", null)}
+                    >
+                        <input
+                            type="radio"
+                            {...register("selectedRoomId")}
+                            value=""
+                            className="sr-only"
+                        />
+                        <h4 className="font-bold text-gray-600 text-lg mb-1">
+                            No Room Preference (Default)
+                        </h4>
+                        <p className="text-sm text-gray-500">
+                            I will accept any available room, and the currency will be determined upon approval.
+                        </p>
+                        {currentSelectedRoomId === "" && (
+                            <div className="absolute top-3 right-3 w-6 h-6 bg-gray-500 rounded-full flex items-center justify-center">
+                                <Check size={16} className="text-white" />
+                            </div>
+                        )}
+                    </label>
                   </div>
+                  
+                  {/* Currency Error Message */}
+                  {currentSelectedRoomId && currentSelectedRoomId !== "" && errors.selectedCurrency && (
+                    <p className="text-red-500 text-sm mt-2 ml-1 flex items-center gap-1">
+                      <AlertCircle size={14} />
+                      {errors.selectedCurrency.message}
+                    </p>
+                  )}
+                  {/* General Room ID error is no longer strictly needed due to refinement */}
+                  
                   <p className="text-sm text-gray-500 mt-2 ml-1">
-                    If not selected, you'll be assigned a room based on
-                    availability
+                    If you select a preferred room, you must also select a payment currency.
                   </p>
                 </div>
               )}
 
-              {/* Name Fields (Optional) */}
+              {/* Name Fields, Professional Role, Social Links, Info Box (kept as is) */}
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
                   <label className="flex items-center gap-2 text-lg font-bold text-[#172a46] mb-3">
@@ -552,7 +658,6 @@ export default function ApplyPage() {
                 </div>
               </div>
 
-              {/* Professional Role */}
               <div>
                 <label className="flex items-center gap-2 text-lg font-bold text-[#172a46] mb-3">
                   <Briefcase size={20} />
@@ -569,7 +674,6 @@ export default function ApplyPage() {
                 </p>
               </div>
 
-              {/* Social Links */}
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
                   <label className="flex items-center gap-2 text-lg font-bold text-[#172a46] mb-3">
@@ -597,7 +701,6 @@ export default function ApplyPage() {
                 </div>
               </div>
 
-              {/* Info Box */}
               <div className="bg-blue-50 border-2 border-blue-200 rounded-2xl p-6">
                 <h4 className="font-bold text-[#172a46] mb-2">
                   📋 What Happens Next?
@@ -615,7 +718,7 @@ export default function ApplyPage() {
                 </ul>
               </div>
 
-              {/* Error Message */}
+              {/* Error Message (kept as is) */}
               {apiError && (
                 <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-4 flex items-start gap-3">
                   <AlertCircle
@@ -629,7 +732,7 @@ export default function ApplyPage() {
                 </div>
               )}
 
-              {/* Submit Button */}
+              {/* Submit Button (kept as is) */}
               <button
                 type="submit"
                 disabled={isSubmitting || !isConnected}

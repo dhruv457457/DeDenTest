@@ -1,34 +1,33 @@
 import { NextResponse, NextRequest } from "next/server";
 import { db } from "@/lib/database";
-import { BookingStatus, PaymentToken } from "@prisma/client";
+import { BookingStatus } from "@prisma/client";
 import { sendApprovalEmail } from "@/lib/email";
 import { Prisma } from "@prisma/client";
+
 /**
- * Approve a waitlisted booking and move it to PENDING with payment details
+ * Approve a waitlisted booking and move it to PENDING
  * POST /api/admin/bookings/[bookingId]/approve
+ * 
+ * FIXED: Does NOT lock payment token - user chooses during payment
  */
 export async function POST(
   request: NextRequest,
-  context: { params: Promise<{ bookingId: string }> } // Changed to Promise
+  context: { params: Promise<{ bookingId: string }> }
 ) {
   try {
-    const { bookingId } = await context.params; // Added await
+    const { bookingId } = await context.params;
 
     const body = await request.json();
-    const {
-      paymentToken = "USDC",
-      paymentAmount,
-      sessionExpiryMinutes = 15,
-    } = body;
+    const { sessionExpiryMinutes = 15 } = body;
 
-    // 1. Find the booking
-    const booking = (await db.booking.findUnique({
+    // 1. Find the booking with room prices
+    const booking = await db.booking.findUnique({
       where: { bookingId },
       include: {
         stay: true,
         user: true,
       },
-    })) as Prisma.BookingGetPayload<{
+    }) as Prisma.BookingGetPayload<{
       include: {
         stay: true;
         user: true;
@@ -43,8 +42,7 @@ export async function POST(
     if (!booking.user || !booking.user.email) {
       return NextResponse.json(
         {
-          error:
-            "Booking has no user or user has no email. Cannot send notification.",
+          error: "Booking has no user or user has no email. Cannot send notification.",
         },
         { status: 400 }
       );
@@ -61,38 +59,22 @@ export async function POST(
       );
     }
 
-    // 4. Determine payment amount
-    const finalAmount =
-      paymentAmount ?? booking.selectedRoomPrice ?? booking.stay.priceUSDC;
-    if (!finalAmount || finalAmount <= 0) {
-      return NextResponse.json(
-        { error: "Invalid payment amount. Stay price not configured." },
-        { status: 400 }
-      );
-    }
-
-    // 5. Calculate amount in base units
-    const decimals = 6;
-    const amountBaseUnits = (finalAmount * Math.pow(10, decimals)).toString();
-
-    // 6. Set expiry time
+    // 4. Set expiry time
     const expiresAt = new Date(Date.now() + sessionExpiryMinutes * 60 * 1000);
 
-    // 7. Update booking
+    // 5. Update booking to PENDING without locking payment details
+    // User will choose token during payment
     const updatedBooking = await db.booking.update({
       where: { bookingId },
       data: {
         status: BookingStatus.PENDING,
-        paymentToken: paymentToken as PaymentToken,
-        paymentAmount: finalAmount,
-        amountBaseUnits: amountBaseUnits,
         expiresAt: expiresAt,
-        chain: "bsc",
-        chainId: 97,
+        // DO NOT SET: paymentToken, paymentAmount, chainId
+        // These will be set during lock-payment call
       },
     });
 
-    // 8. Log activity
+    // 6. Log activity
     await db.activityLog.create({
       data: {
         userId: booking.userId,
@@ -103,19 +85,23 @@ export async function POST(
         details: {
           previousStatus: BookingStatus.WAITLISTED,
           newStatus: BookingStatus.PENDING,
-          paymentAmount: finalAmount,
-          paymentToken: paymentToken,
           expiresAt: expiresAt,
+          // Room prices are already saved in the booking
+          selectedRoomPriceUSDC: booking.selectedRoomPriceUSDC,
+          selectedRoomPriceUSDT: booking.selectedRoomPriceUSDT,
         },
       },
     });
 
-    // 9. Send Email
+    // 7. Send Email
     const paymentUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/booking/${bookingId}`;
     let emailSent = false;
     let emailError = null;
 
     try {
+      // Determine display amount for email (USDC by default for display)
+      const displayAmount = booking.selectedRoomPriceUSDC || booking.stay.priceUSDC;
+      
       await sendApprovalEmail({
         recipientEmail: booking.user.email!,
         recipientName: booking.user.displayName || "Guest",
@@ -124,8 +110,8 @@ export async function POST(
         stayLocation: booking.stay.location,
         startDate: booking.stay.startDate,
         endDate: booking.stay.endDate,
-        paymentAmount: finalAmount,
-        paymentToken: paymentToken as string,
+        paymentAmount: displayAmount,
+        paymentToken: "USDC/USDT", // Show both options
         paymentUrl,
         expiresAt,
       });
@@ -139,7 +125,7 @@ export async function POST(
       emailError = error.message || "Unknown email error";
     }
 
-    // 10. Return Response
+    // 8. Return Response
     return NextResponse.json({
       success: true,
       message: "Booking approved and moved to pending payment",
@@ -148,10 +134,11 @@ export async function POST(
       booking: {
         bookingId: updatedBooking.bookingId,
         status: updatedBooking.status,
-        paymentAmount: updatedBooking.paymentAmount,
-        paymentToken: updatedBooking.paymentToken,
         expiresAt: updatedBooking.expiresAt,
         paymentLink: `/booking/${bookingId}`,
+        // Return both room prices so frontend knows what's available
+        roomPriceUSDC: booking.selectedRoomPriceUSDC,
+        roomPriceUSDT: booking.selectedRoomPriceUSDT,
       },
     });
   } catch (error) {
