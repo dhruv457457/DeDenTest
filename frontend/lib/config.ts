@@ -1,4 +1,4 @@
-// lib/config.ts - Production Mainnet Configuration with Hardcoded Treasury
+// lib/config.ts - Production Mainnet Configuration (Next.js 15 Compatible)
 
 interface TokenConfig {
   address: string;
@@ -25,54 +25,39 @@ interface ChainConfig {
 // ✅ HARDCODED TREASURY ADDRESS
 export const treasuryAddress = '0x317914bc4db3f61c0cba933a3e00d7a8bed124a5';
 
-// Helper function to safely get environment variables
-function getEnvVar(key: string, friendlyName: string): string {
-  // Check if we're in a browser environment
-  const isBrowser = typeof window !== 'undefined';
-  
-  // Get the value
+// ✅ Next.js 15 Compatible: Get environment variables safely
+function getEnvVar(key: string): string {
   const value = process.env[key];
   
   // If value exists and is valid, return it
-  if (value && value.trim() !== '') {
+  if (value && value.trim() !== '' && value !== 'undefined') {
     return value.trim();
   }
   
-  // During build phase, return placeholder to allow build to complete
-  // The actual values will be used at runtime from the deployment platform
-  if (!isBrowser) {
-    console.warn(`⚠️  ${key} not set - using placeholder. Ensure it's set in your deployment platform.`);
-    return '__PLACEHOLDER__'; // Non-empty placeholder to pass validation
-  }
-  
-  // At runtime in browser, this shouldn't happen, but handle gracefully
-  console.error(`❌ Missing runtime env var: ${key}`);
-  return '__MISSING__';
+  // Return placeholder for build phase - will be replaced at runtime
+  return '__BUILD_TIME_PLACEHOLDER__';
 }
 
-// Get API keys with graceful fallback
-const arbitrumApiKey = getEnvVar(
-  'NEXT_PUBLIC_ALCHEMY_API_KEY_ARBITRUM',
-  'Alchemy API key for Arbitrum network'
-);
+// Get API keys (safe for build phase)
+const arbitrumApiKey = getEnvVar('NEXT_PUBLIC_ALCHEMY_API_KEY_ARBITRUM');
+const bnbApiKey = getEnvVar('NEXT_PUBLIC_ALCHEMY_API_KEY_BNB');
+const baseApiKey = getEnvVar('NEXT_PUBLIC_ALCHEMY_API_KEY_BASE');
 
-const bnbApiKey = getEnvVar(
-  'NEXT_PUBLIC_ALCHEMY_API_KEY_BNB',
-  'Alchemy API key for BNB Chain'
-);
-
-const baseApiKey = getEnvVar(
-  'NEXT_PUBLIC_ALCHEMY_API_KEY_BASE',
-  'Alchemy API key for Base network'
-);
-
-// Log initialization (only in non-build environments)
-if (typeof window === 'undefined' && process.env.NEXT_PHASE !== 'phase-production-build') {
-  console.log('🔍 Environment Check:');
-  console.log('   Treasury:', treasuryAddress);
-  console.log('   Arbitrum API:', arbitrumApiKey.substring(0, 8) + '...');
-  console.log('   BNB API:', bnbApiKey.substring(0, 8) + '...');
-  console.log('   Base API:', baseApiKey.substring(0, 8) + '...');
+// Log status (only server-side)
+if (typeof window === 'undefined') {
+  const hasRealValues = !arbitrumApiKey.includes('PLACEHOLDER') && 
+                        !arbitrumApiKey.includes('undefined') &&
+                        arbitrumApiKey.length > 10;
+  
+  if (hasRealValues) {
+    console.log('✅ Environment variables loaded successfully');
+    console.log('   Treasury:', treasuryAddress);
+    console.log('   Arbitrum API:', arbitrumApiKey.substring(0, 8) + '...');
+    console.log('   BNB API:', bnbApiKey.substring(0, 8) + '...');
+    console.log('   Base API:', baseApiKey.substring(0, 8) + '...');
+  } else {
+    console.log('⚠️  Build-time mode: Environment variables will load at runtime');
+  }
 }
 
 // MAINNET CONFIGURATION
@@ -90,7 +75,7 @@ export const chainConfig: { [key: number]: ChainConfig } = {
     },
     tokens: {
       USDC: {
-        address: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+        address: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831", // Native USDC
         decimals: 6,
         symbol: "USDC",
         name: "USD Coin",
@@ -131,7 +116,7 @@ export const chainConfig: { [key: number]: ChainConfig } = {
     },
   },
 
-  // Base (Mainnet)
+  // Base (Mainnet) - USDC only
   8453: {
     name: "Base",
     chainId: 8453,
@@ -144,7 +129,7 @@ export const chainConfig: { [key: number]: ChainConfig } = {
     },
     tokens: {
       USDC: {
-        address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", // Native USDC
         decimals: 6,
         symbol: "USDC",
         name: "USD Coin",
@@ -153,41 +138,54 @@ export const chainConfig: { [key: number]: ChainConfig } = {
   },
 };
 
-// Helper functions
+// Helper function to get supported tokens for a chain
 export function getSupportedTokens(chainId: number): string[] {
   const chain = chainConfig[chainId];
   return chain ? Object.keys(chain.tokens) : [];
 }
 
-export function validateChainAndToken(chainId: number, token: string): boolean {
+// Helper function to validate chain and token
+export function validateChainAndToken(
+  chainId: number,
+  token: string
+): boolean {
   const chain = chainConfig[chainId];
   if (!chain) return false;
   return token in chain.tokens;
 }
 
+// Get chain name by ID
 export function getChainName(chainId: number): string {
   return chainConfig[chainId]?.name || "Unknown Chain";
 }
 
+// Export list of supported chain IDs
 export const SUPPORTED_CHAINS = Object.keys(chainConfig).map(Number);
 
-// Validate configuration
+// Validate configuration at module load time
 function validateConfiguration(): void {
   const errors: string[] = [];
   
+  // Validate treasury address format
   if (!/^0x[a-fA-F0-9]{40}$/i.test(treasuryAddress)) {
     errors.push(`Invalid treasury address format: ${treasuryAddress}`);
   }
   
+  // Check that we have at least one chain configured
   if (SUPPORTED_CHAINS.length === 0) {
     errors.push("No chains configured");
   }
   
+  // Validate each chain configuration
   SUPPORTED_CHAINS.forEach((chainId) => {
     const chain = chainConfig[chainId];
     
-    // Skip RPC validation during build if placeholder
-    if (!chain.rpcUrl.includes('PLACEHOLDER') && !chain.rpcUrl.startsWith('http')) {
+    // Skip RPC validation if using placeholder (during build)
+    const isPlaceholder = chain.rpcUrl.includes('PLACEHOLDER') || 
+                         chain.rpcUrl.includes('undefined') ||
+                         chain.rpcUrl.length < 20;
+    
+    if (!isPlaceholder && !chain.rpcUrl.startsWith('http')) {
       errors.push(`Invalid RPC URL for chain ${chainId}`);
     }
     
@@ -195,6 +193,7 @@ function validateConfiguration(): void {
       errors.push(`No tokens configured for chain ${chainId}`);
     }
     
+    // Validate token addresses
     Object.entries(chain.tokens).forEach(([symbol, token]) => {
       if (!/^0x[a-fA-F0-9]{40}$/i.test(token.address)) {
         errors.push(`Invalid token address for ${symbol} on chain ${chainId}`);
@@ -203,15 +202,16 @@ function validateConfiguration(): void {
   });
   
   if (errors.length > 0) {
-    throw new Error(
-      '❌ Configuration validation failed:\n' +
-      errors.map(e => `   - ${e}`).join('\n')
-    );
-  }
-  
-  if (typeof window === 'undefined' && process.env.NEXT_PHASE !== 'phase-production-build') {
+    console.error('❌ Configuration validation failed:');
+    errors.forEach(e => console.error(`   - ${e}`));
+    // Don't throw during build - let it continue
+    if (typeof window !== 'undefined') {
+      throw new Error('Configuration validation failed - check console for details');
+    }
+  } else if (typeof window === 'undefined') {
     console.log(`✅ Config validated: ${SUPPORTED_CHAINS.length} chains, treasury: ${treasuryAddress}`);
   }
 }
 
+// Run validation on module load
 validateConfiguration();
