@@ -1,5 +1,5 @@
 // File: app/stay/[stayId]/apply/page.tsx
-// ✅ UPDATED: Date range picker - users select check-in/check-out dates
+// ✅ FIXED: Proper date prefilling and duration calculation
 "use client";
 
 import { useState, useEffect } from "react";
@@ -28,7 +28,6 @@ import {
   Calendar,
 } from "lucide-react";
 
-// ✅ UPDATED: Added check-in/check-out dates
 const applySchema = z.object({
   displayName: z.string().min(3, "Name is required"),
   email: z.string().email("Invalid email address"),
@@ -44,11 +43,9 @@ const applySchema = z.object({
     .max(120, "Invalid age"),
   mobileNumber: z.string().min(10, "Valid mobile number is required"),
 
-  // ROOM SELECTION
   selectedRoomId: z.string().optional(),
   selectedCurrency: z.string().optional(),
   
-  // ✅ NEW: DATE RANGE SELECTION
   checkInDate: z.string().min(1, "Please select check-in date"),
   checkOutDate: z.string().min(1, "Please select check-out date"),
 
@@ -69,7 +66,6 @@ const applySchema = z.object({
     }
 ).refine(
     (data) => {
-        // Validate check-out is after check-in
         if (data.checkInDate && data.checkOutDate) {
             return new Date(data.checkOutDate) > new Date(data.checkInDate);
         }
@@ -95,6 +91,120 @@ type StayData = {
   rooms: any[];
 };
 
+// ✅ Helper function to format date for input (handles both string and Date)
+const formatDateForInput = (date: Date | string | null | undefined): string => {
+  try {
+    // Check if date exists
+    if (!date) {
+      return '';
+    }
+    
+    // Try to create Date object
+    let d: Date;
+    if (typeof date === 'string') {
+      d = new Date(date);
+    } else if (date instanceof Date) {
+      d = date;
+    } else {
+      console.error('[formatDateForInput] Invalid date type:', typeof date, date);
+      return '';
+    }
+    
+    // Check if d was created and is a valid Date
+    if (!d) {
+      console.error('[formatDateForInput] Date object is null/undefined');
+      return '';
+    }
+    
+    // Check if it's a valid date
+    if (!(d instanceof Date)) {
+      console.error('[formatDateForInput] Not a Date instance:', d);
+      return '';
+    }
+    
+    // Check if date is valid (not Invalid Date)
+    if (isNaN(d.getTime())) {
+      console.error('[formatDateForInput] Invalid date value:', date);
+      return '';
+    }
+    
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  } catch (error) {
+    console.error('[formatDateForInput] Error formatting date:', error, date);
+    return '';
+  }
+};
+
+// ✅ Helper function to format date for display
+const formatDateForDisplay = (date: Date | string | null | undefined): string => {
+  try {
+    // Check if date exists
+    if (!date) {
+      return 'Loading...';
+    }
+    
+    // Try to create Date object
+    let d: Date;
+    if (typeof date === 'string') {
+      d = new Date(date);
+    } else if (date instanceof Date) {
+      d = date;
+    } else {
+      console.error('[formatDateForDisplay] Invalid date type:', typeof date, date);
+      return 'Invalid Date';
+    }
+    
+    // Check if d was created and is a valid Date
+    if (!d || !(d instanceof Date)) {
+      console.error('[formatDateForDisplay] Not a valid Date object');
+      return 'Invalid Date';
+    }
+    
+    // Check if date is valid (not Invalid Date)
+    if (isNaN(d.getTime())) {
+      console.error('[formatDateForDisplay] Invalid date value:', date);
+      return 'Invalid Date';
+    }
+    
+    return d.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric',
+      year: 'numeric' 
+    });
+  } catch (error) {
+    console.error('[formatDateForDisplay] Error formatting date:', error, date);
+    return 'Invalid Date';
+  }
+};
+
+// ✅ Helper function to calculate nights between two dates
+const calculateNightsBetween = (checkIn: string | Date | null | undefined, checkOut: string | Date | null | undefined): number => {
+  try {
+    if (!checkIn || !checkOut) {
+      return 0;
+    }
+    
+    const checkInDate = new Date(checkIn);
+    const checkOutDate = new Date(checkOut);
+    
+    if (!checkInDate || !checkOutDate || isNaN(checkInDate.getTime()) || isNaN(checkOutDate.getTime())) {
+      return 0;
+    }
+    
+    if (checkOutDate <= checkInDate) return 0;
+    
+    const diffTime = checkOutDate.getTime() - checkInDate.getTime();
+    const nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return nights;
+  } catch (error) {
+    console.error('[calculateNightsBetween] Error:', error);
+    return 0;
+  }
+};
+
 export default function ApplyPage() {
   const params = useParams();
   const router = useRouter();
@@ -107,6 +217,7 @@ export default function ApplyPage() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [stayData, setStayData] = useState<StayData | null>(null);
   const [calculatedNights, setCalculatedNights] = useState<number>(0);
+  const [stayDuration, setStayDuration] = useState<number>(0);
 
   const {
     register,
@@ -130,65 +241,53 @@ export default function ApplyPage() {
   const checkInDate = watch("checkInDate");
   const checkOutDate = watch("checkOutDate");
 
-  // ✅ NEW: Calculate nights whenever dates change
+  // ✅ Calculate nights whenever dates change
   useEffect(() => {
     if (checkInDate && checkOutDate) {
-      const checkIn = new Date(checkInDate);
-      const checkOut = new Date(checkOutDate);
-      
-      if (checkOut > checkIn) {
-        const diffTime = checkOut.getTime() - checkIn.getTime();
-        const nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        setCalculatedNights(nights);
-      } else {
-        setCalculatedNights(0);
-      }
+      const nights = calculateNightsBetween(checkInDate, checkOutDate);
+      setCalculatedNights(nights);
     } else {
       setCalculatedNights(0);
     }
   }, [checkInDate, checkOutDate]);
 
-  const handleRoomSelection = (roomId: string, currency: "USDC" | "USDT" | null) => {
-    if (!roomId) {
-      setValue("selectedRoomId", "");
-      setValue("selectedCurrency", "");
-    } else {
-      setValue("selectedRoomId", roomId);
-      setValue("selectedCurrency", currency || "", { shouldValidate: true });
-    }
-  };
-
-  // ✅ FIXED: Safe price calculation
-  const calculateTotalPrice = (pricePerNight: number | undefined | null): string => {
-    const price = Number(pricePerNight) || 0;
-    const nights = calculatedNights || 0;
-    const total = price * nights;
-    
-    return isNaN(total) || total === 0 ? "0.00" : total.toFixed(2);
-  };
-
-  // ✅ NEW: Format date for input (YYYY-MM-DD)
-  const formatDateForInput = (date: Date): string => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-
+  // ✅ Fetch stay data and pre-fill dates
   useEffect(() => {
     const fetchStayData = async () => {
       try {
         const response = await fetch(`/api/stays/${stayId}`);
         if (response.ok) {
           const data = await response.json();
+          
+          console.log('[Apply] Raw stay data:', {
+            startDate: data.startDate,
+            endDate: data.endDate,
+            duration: data.duration
+          });
+          
+          // ✅ Calculate duration FIRST before setting state
+          let duration = 0;
+          if (data.duration && !isNaN(data.duration)) {
+            duration = Number(data.duration);
+          } else if (data.startDate && data.endDate) {
+            duration = calculateNightsBetween(data.startDate, data.endDate);
+          }
+          
+          console.log('[Apply] Stay duration calculated:', duration);
+          setStayDuration(duration);
           setStayData(data);
           
-          // ✅ NEW: Set default dates to full stay
+          // ✅ Pre-fill dates with full stay period
           if (data.startDate && data.endDate) {
-            const checkIn = formatDateForInput(new Date(data.startDate));
-            const checkOut = formatDateForInput(new Date(data.endDate));
-            setValue("checkInDate", checkIn);
-            setValue("checkOutDate", checkOut);
+            try {
+              const checkIn = formatDateForInput(data.startDate);
+              const checkOut = formatDateForInput(data.endDate);
+              console.log('[Apply] Formatted dates:', { checkIn, checkOut });
+              setValue("checkInDate", checkIn);
+              setValue("checkOutDate", checkOut);
+            } catch (dateError) {
+              console.error('[Apply] Date formatting error:', dateError);
+            }
           }
         }
       } catch (error) {
@@ -201,8 +300,9 @@ export default function ApplyPage() {
     }
   }, [stayId, setValue]);
 
+  // ✅ Pre-fill user data from session
   useEffect(() => {
-    if (session?.user) {
+    if (session?.user && stayData) {
         const sessionUser = session.user as any; 
         
         reset({
@@ -223,11 +323,30 @@ export default function ApplyPage() {
             socialTelegram: sessionUser.socialTelegram || "",
             selectedRoomId: "",
             selectedCurrency: "",
-            checkInDate: stayData ? formatDateForInput(new Date(stayData.startDate)) : "",
-            checkOutDate: stayData ? formatDateForInput(new Date(stayData.endDate)) : "",
+            // ✅ Keep the dates that were already set
+            checkInDate: formatDateForInput(stayData.startDate),
+            checkOutDate: formatDateForInput(stayData.endDate),
         });
     }
   }, [session, reset, stayData]);
+
+  const handleRoomSelection = (roomId: string, currency: "USDC" | "USDT" | null) => {
+    if (!roomId) {
+      setValue("selectedRoomId", "");
+      setValue("selectedCurrency", "");
+    } else {
+      setValue("selectedRoomId", roomId);
+      setValue("selectedCurrency", currency || "", { shouldValidate: true });
+    }
+  };
+
+  const calculateTotalPrice = (pricePerNight: number | undefined | null): string => {
+    const price = Number(pricePerNight) || 0;
+    const nights = calculatedNights || 0;
+    const total = price * nights;
+    
+    return isNaN(total) || total === 0 ? "0.00" : total.toFixed(2);
+  };
 
   const onSubmit: SubmitHandler<ApplyFormInputs> = async (data) => {
     if (sessionStatus !== "authenticated") {
@@ -262,7 +381,7 @@ export default function ApplyPage() {
           ...data,
           walletAddress: address,
           selectedCurrency: data.selectedRoomId ? data.selectedCurrency : null,
-          numberOfNights: calculatedNights, // Send calculated nights to backend
+          numberOfNights: calculatedNights,
         }),
       });
 
@@ -309,7 +428,7 @@ export default function ApplyPage() {
               </h1>
               <p className="text-xl text-gray-600 mb-3">
                 Your application for{" "}
-                <strong className="text-[#172a46]">{stayId}</strong> is now{" "}
+                <strong className="text-[#172a46]">{stayData?.title || stayId}</strong> is now{" "}
                 <strong>under review</strong>.
               </p>
               {checkInDate && checkOutDate && (
@@ -367,16 +486,23 @@ export default function ApplyPage() {
 
           <div className="text-center text-white mb-12">
             <h1 className="text-4xl md:text-5xl font-bold mb-4">
-              Apply for {stayId}
+              Apply for {stayData?.title || stayId}
             </h1>
             <p className="text-lg text-gray-300 max-w-2xl mx-auto">
               Complete your application below. You need to be signed in and have
               a wallet connected for payment processing.
             </p>
             {stayData && (
-              <p className="text-md text-gray-400 mt-2">
-                📅 Available: {new Date(stayData.startDate).toLocaleDateString()} - {new Date(stayData.endDate).toLocaleDateString()}
-              </p>
+              <div className="mt-4 space-y-2">
+                <p className="text-md text-gray-400">
+                  📅 Available: {new Date(stayData.startDate).toLocaleDateString()} - {new Date(stayData.endDate).toLocaleDateString()}
+                </p>
+                {stayDuration > 0 && (
+                  <p className="text-sm text-gray-500">
+                    Duration: <strong className="text-gray-300">{stayDuration} nights</strong>
+                  </p>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -455,25 +581,58 @@ export default function ApplyPage() {
               onSubmit={handleSubmit(onSubmit)}
               className="p-8 md:p-12 space-y-8"
             >
-              {/* ✅ NEW: Date Range Selection */}
+              {/* ✅ Date Range Selection with Event Timeline */}
               {stayData && (
                 <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-2xl p-6">
-                  <label className="flex items-center gap-2 text-lg font-bold text-[#172a46] mb-4">
+                  <label className="flex items-center gap-2 text-lg font-bold text-[#172a46] mb-2">
                     <Calendar size={20} />
                     Select Your Stay Dates
                     <span className="text-red-500">*</span>
                   </label>
                   
+                  {/* ✅ Event Timeline Display */}
+                  <div className="bg-white border-2 border-[#172a46] rounded-xl p-4 mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-sm font-semibold text-gray-600">Event Period:</div>
+                      {stayDuration > 0 && (
+                        <div className="bg-[#172a46] text-white px-3 py-1 rounded-full text-xs font-bold">
+                          {stayDuration} Nights Total
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 text-center">
+                        <div className="text-xs text-gray-500 mb-1">Check-in Available</div>
+                        <div className="font-bold text-[#172a46]">
+                          {stayData.startDate ? formatDateForDisplay(stayData.startDate) : 'Loading...'}
+                        </div>
+                      </div>
+                      <div className="flex-shrink-0">
+                        <div className="w-16 h-0.5 bg-[#172a46]"></div>
+                      </div>
+                      <div className="flex-1 text-center">
+                        <div className="text-xs text-gray-500 mb-1">Check-out By</div>
+                        <div className="font-bold text-[#172a46]">
+                          {stayData.endDate ? formatDateForDisplay(stayData.endDate) : 'Loading...'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="text-sm text-gray-600 mb-4 text-center italic">
+                    📅 Choose any check-in and check-out dates within this period
+                  </p>
+                  
                   <div className="grid md:grid-cols-2 gap-4 mb-4">
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Check-In Date
+                        Your Check-In Date
                       </label>
                       <input
                         type="date"
                         {...register("checkInDate")}
-                        min={formatDateForInput(new Date(stayData.startDate))}
-                        max={formatDateForInput(new Date(stayData.endDate))}
+                        min={stayData.startDate ? formatDateForInput(stayData.startDate) : undefined}
+                        max={stayData.endDate ? formatDateForInput(stayData.endDate) : undefined}
                         className="w-full px-4 py-3 text-lg border-2 border-gray-300 rounded-xl focus:border-[#172a46] focus:outline-none transition-colors"
                       />
                       {errors.checkInDate && (
@@ -486,13 +645,13 @@ export default function ApplyPage() {
 
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Check-Out Date
+                        Your Check-Out Date
                       </label>
                       <input
                         type="date"
                         {...register("checkOutDate")}
-                        min={checkInDate || formatDateForInput(new Date(stayData.startDate))}
-                        max={formatDateForInput(new Date(stayData.endDate))}
+                        min={checkInDate || (stayData.startDate ? formatDateForInput(stayData.startDate) : undefined)}
+                        max={stayData.endDate ? formatDateForInput(stayData.endDate) : undefined}
                         className="w-full px-4 py-3 text-lg border-2 border-gray-300 rounded-xl focus:border-[#172a46] focus:outline-none transition-colors"
                       />
                       {errors.checkOutDate && (
@@ -504,26 +663,42 @@ export default function ApplyPage() {
                     </div>
                   </div>
 
-                  {/* ✅ NEW: Calculated Nights Display */}
-                  {calculatedNights > 0 && (
-                    <div className="bg-white border-2 border-blue-300 rounded-xl p-4 text-center">
-                      <div className="text-4xl font-bold text-[#172a46] mb-1">
-                        {calculatedNights}
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        night{calculatedNights !== 1 ? 's' : ''}
-                      </div>
-                      {checkInDate && checkOutDate && (
-                        <div className="text-xs text-gray-500 mt-2">
-                          {new Date(checkInDate).toLocaleDateString()} → {new Date(checkOutDate).toLocaleDateString()}
+                  {/* ✅ Your Selection Display */}
+                  {calculatedNights > 0 ? (
+                    <div className="bg-white border-2 border-green-400 rounded-xl p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                            <Check className="text-green-600" size={20} />
+                          </div>
+                          <div>
+                            <div className="text-xs text-gray-500">Your Selection</div>
+                            <div className="font-bold text-[#172a46] text-lg">
+                              {calculatedNights} Night{calculatedNights !== 1 ? 's' : ''}
+                            </div>
+                          </div>
                         </div>
-                      )}
+                        <div className="text-right">
+                          <div className="text-xs text-gray-500 mb-1">Dates</div>
+                          <div className="text-sm font-semibold text-[#172a46]">
+                            {checkInDate && checkOutDate ? (
+                              <>
+                                {new Date(checkInDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(checkOutDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                              </>
+                            ) : (
+                              'Select dates'
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4 text-center">
+                      <div className="text-sm text-gray-500">
+                        👆 Select your dates above to see your booking duration
+                      </div>
                     </div>
                   )}
-
-                  <p className="text-sm text-gray-600 mt-3 text-center">
-                    Choose any dates within the stay period ({new Date(stayData.startDate).toLocaleDateString()} - {new Date(stayData.endDate).toLocaleDateString()})
-                  </p>
                 </div>
               )}
 
@@ -637,7 +812,7 @@ export default function ApplyPage() {
                 </div>
               </div>
 
-              {/* ✅ UPDATED: Room Selection with Dynamic Pricing based on calculated nights */}
+              {/* Room Selection */}
               {stayData && stayData.rooms && stayData.rooms.length > 0 && calculatedNights > 0 && (
                 <div>
                   <label className="flex items-center gap-2 text-lg font-bold text-[#172a46] mb-3">

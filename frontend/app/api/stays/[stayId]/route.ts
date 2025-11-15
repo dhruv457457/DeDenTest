@@ -1,18 +1,19 @@
+// File: app/api/stays/[stayId]/route.ts
+// ✅ FIXED: Returns ALL fields needed for the apply page
+
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/database';
 
 /**
  * GET /api/stays/[stayId]
  * Fetches public details for a single stay,
- * including the room options for the apply page.
+ * including dates, duration, prices, and room options for the apply page.
  */
 export async function GET(
   request: Request,
-  // 💡 FIX 1: Use the Promise-based context your other routes use
   context: { params: Promise<{ stayId: string }> } 
 ) {
   try {
-    // 💡 FIX 2: Add 'await' to unwrap the promise
     const { stayId } = await context.params; 
 
     if (!stayId) {
@@ -25,11 +26,31 @@ export async function GET(
     const stay = await db.stay.findUnique({
       where: { stayId: stayId },
       select: {
-        // Select only the fields needed by the ApplyPage
+        // ✅ Basic Info
         stayId: true,
         title: true,
-        // ⭐️ This is the all-important line that includes the rooms
-        rooms: true 
+        location: true,
+        description: true,
+        
+        // ✅ CRITICAL: Date & Duration fields for the apply form
+        startDate: true,
+        endDate: true,
+        duration: true,
+        
+        // ✅ Pricing (defaults if no room selected)
+        priceUSDC: true,
+        priceUSDT: true,
+        
+        // ✅ Room options with their prices
+        rooms: true,
+        
+        // ✅ Additional useful fields
+        slotsTotal: true,
+        slotsAvailable: true,
+        allowWaitlist: true,
+        images: true,
+        amenities: true,
+        highlights: true,
       },
     });
 
@@ -40,13 +61,19 @@ export async function GET(
       );
     }
 
-    // Return the full stay object, which now includes the rooms
-    return NextResponse.json(stay);
+    // ✅ Convert dates to ISO strings for JSON serialization
+    const stayWithFormattedDates = {
+      ...stay,
+      startDate: stay.startDate.toISOString(),
+      endDate: stay.endDate.toISOString(),
+    };
+
+    return NextResponse.json(stayWithFormattedDates);
 
   } catch (error) {
     console.error('[API] Error fetching stay details:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: (error as Error).message },
       { status: 500 }
     );
   }
