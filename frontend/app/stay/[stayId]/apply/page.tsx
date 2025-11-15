@@ -28,54 +28,58 @@ import {
   Calendar,
 } from "lucide-react";
 
-const applySchema = z.object({
-  displayName: z.string().min(3, "Name is required"),
-  email: z.string().email("Invalid email address"),
-  firstName: z.string().optional(),
-  lastName: z.string().optional(),
+const applySchema = z
+  .object({
+    displayName: z.string().min(3, "Name is required"),
+    email: z.string().email("Invalid email address"),
+    firstName: z.string().optional(),
+    lastName: z.string().optional(),
 
-  gender: z.enum(["Male", "Female", "Other", "Prefer not to say"], {
-    message: "Please select your gender",
-  }),
-  age: z
-    .number()
-    .min(18, "You must be at least 18 years old")
-    .max(120, "Invalid age"),
-  mobileNumber: z.string().min(10, "Valid mobile number is required"),
+    gender: z.enum(["Male", "Female", "Other", "Prefer not to say"], {
+      message: "Please select your gender",
+    }),
+    age: z
+      .number()
+      .min(18, "You must be at least 18 years old")
+      .max(120, "Invalid age"),
+    mobileNumber: z.string().min(10, "Valid mobile number is required"),
 
-  selectedRoomId: z.string().optional(),
-  selectedCurrency: z.string().optional(),
-  
-  checkInDate: z.string().min(1, "Please select check-in date"),
-  checkOutDate: z.string().min(1, "Please select check-out date"),
+    selectedRoomId: z.string().optional(),
+    selectedCurrency: z.string().optional(),
 
-  role: z.string().optional(),
-  socialTwitter: z.string().optional(),
-  socialLinkedin: z.string().optional(),
-  socialTelegram: z.string().optional(),
-}).refine(
+    checkInDate: z.string().min(1, "Please select check-in date"),
+    checkOutDate: z.string().min(1, "Please select check-out date"),
+
+    role: z.string().optional(),
+    socialTwitter: z.string().optional(),
+    socialLinkedin: z.string().optional(),
+    socialTelegram: z.string().optional(),
+  })
+  .refine(
     (data) => {
-        if (data.selectedRoomId && data.selectedRoomId !== "") {
-            return ["USDC", "USDT"].includes(data.selectedCurrency as string);
-        }
-        return true;
+      if (data.selectedRoomId && data.selectedRoomId !== "") {
+        return ["USDC", "USDT"].includes(data.selectedCurrency as string);
+      }
+      return true;
     },
     {
-        message: "Please select a payment currency (USDC or USDT) for your preferred room.",
-        path: ["selectedCurrency"], 
+      message:
+        "Please select a payment currency (USDC or USDT) for your preferred room.",
+      path: ["selectedCurrency"],
     }
-).refine(
+  )
+  .refine(
     (data) => {
-        if (data.checkInDate && data.checkOutDate) {
-            return new Date(data.checkOutDate) > new Date(data.checkInDate);
-        }
-        return true;
+      if (data.checkInDate && data.checkOutDate) {
+        return new Date(data.checkOutDate) > new Date(data.checkInDate);
+      }
+      return true;
     },
     {
-        message: "Check-out date must be after check-in date",
-        path: ["checkOutDate"],
+      message: "Check-out date must be after check-in date",
+      path: ["checkOutDate"],
     }
-);
+  );
 
 type ApplyFormInputs = z.infer<typeof applySchema>;
 
@@ -96,111 +100,129 @@ const formatDateForInput = (date: Date | string | null | undefined): string => {
   try {
     // Check if date exists
     if (!date) {
-      return '';
+      return "";
     }
-    
+
     // Try to create Date object
     let d: Date;
-    if (typeof date === 'string') {
+    if (typeof date === "string") {
       d = new Date(date);
     } else if (date instanceof Date) {
       d = date;
     } else {
-      console.error('[formatDateForInput] Invalid date type:', typeof date, date);
-      return '';
+      console.error(
+        "[formatDateForInput] Invalid date type:",
+        typeof date,
+        date
+      );
+      return "";
     }
-    
+
     // Check if d was created and is a valid Date
     if (!d) {
-      console.error('[formatDateForInput] Date object is null/undefined');
-      return '';
+      console.error("[formatDateForInput] Date object is null/undefined");
+      return "";
     }
-    
+
     // Check if it's a valid date
     if (!(d instanceof Date)) {
-      console.error('[formatDateForInput] Not a Date instance:', d);
-      return '';
+      console.error("[formatDateForInput] Not a Date instance:", d);
+      return "";
     }
-    
+
     // Check if date is valid (not Invalid Date)
     if (isNaN(d.getTime())) {
-      console.error('[formatDateForInput] Invalid date value:', date);
-      return '';
+      console.error("[formatDateForInput] Invalid date value:", date);
+      return "";
     }
-    
+
     const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
   } catch (error) {
-    console.error('[formatDateForInput] Error formatting date:', error, date);
-    return '';
+    console.error("[formatDateForInput] Error formatting date:", error, date);
+    return "";
   }
 };
 
 // ✅ Helper function to format date for display
-const formatDateForDisplay = (date: Date | string | null | undefined): string => {
+const formatDateForDisplay = (
+  date: Date | string | null | undefined
+): string => {
   try {
     // Check if date exists
     if (!date) {
-      return 'Loading...';
+      return "Loading...";
     }
-    
+
     // Try to create Date object
     let d: Date;
-    if (typeof date === 'string') {
+    if (typeof date === "string") {
       d = new Date(date);
     } else if (date instanceof Date) {
       d = date;
     } else {
-      console.error('[formatDateForDisplay] Invalid date type:', typeof date, date);
-      return 'Invalid Date';
+      console.error(
+        "[formatDateForDisplay] Invalid date type:",
+        typeof date,
+        date
+      );
+      return "Invalid Date";
     }
-    
+
     // Check if d was created and is a valid Date
     if (!d || !(d instanceof Date)) {
-      console.error('[formatDateForDisplay] Not a valid Date object');
-      return 'Invalid Date';
+      console.error("[formatDateForDisplay] Not a valid Date object");
+      return "Invalid Date";
     }
-    
+
     // Check if date is valid (not Invalid Date)
     if (isNaN(d.getTime())) {
-      console.error('[formatDateForDisplay] Invalid date value:', date);
-      return 'Invalid Date';
+      console.error("[formatDateForDisplay] Invalid date value:", date);
+      return "Invalid Date";
     }
-    
-    return d.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric',
-      year: 'numeric' 
+
+    return d.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
     });
   } catch (error) {
-    console.error('[formatDateForDisplay] Error formatting date:', error, date);
-    return 'Invalid Date';
+    console.error("[formatDateForDisplay] Error formatting date:", error, date);
+    return "Invalid Date";
   }
 };
 
 // ✅ Helper function to calculate nights between two dates
-const calculateNightsBetween = (checkIn: string | Date | null | undefined, checkOut: string | Date | null | undefined): number => {
+const calculateNightsBetween = (
+  checkIn: string | Date | null | undefined,
+  checkOut: string | Date | null | undefined
+): number => {
   try {
     if (!checkIn || !checkOut) {
       return 0;
     }
-    
+
     const checkInDate = new Date(checkIn);
     const checkOutDate = new Date(checkOut);
-    
-    if (!checkInDate || !checkOutDate || isNaN(checkInDate.getTime()) || isNaN(checkOutDate.getTime())) {
+
+    if (
+      !checkInDate ||
+      !checkOutDate ||
+      isNaN(checkInDate.getTime()) ||
+      isNaN(checkOutDate.getTime())
+    ) {
       return 0;
     }
-    
+
     if (checkOutDate <= checkInDate) return 0;
-    
+
     const diffTime = checkOutDate.getTime() - checkInDate.getTime();
     const nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return nights;
   } catch (error) {
-    console.error('[calculateNightsBetween] Error:', error);
+    console.error("[calculateNightsBetween] Error:", error);
     return 0;
   }
 };
@@ -219,20 +241,24 @@ export default function ApplyPage() {
   const [calculatedNights, setCalculatedNights] = useState<number>(0);
   const [stayDuration, setStayDuration] = useState<number>(0);
 
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [isSuccess]);
+
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
     reset,
     watch,
-    setValue, 
+    setValue,
   } = useForm<ApplyFormInputs>({
     resolver: zodResolver(applySchema),
     defaultValues: {
-        selectedRoomId: "", 
-        selectedCurrency: "",
-        checkInDate: "",
-        checkOutDate: "",
+      selectedRoomId: "",
+      selectedCurrency: "",
+      checkInDate: "",
+      checkOutDate: "",
     },
   });
 
@@ -258,13 +284,13 @@ export default function ApplyPage() {
         const response = await fetch(`/api/stays/${stayId}`);
         if (response.ok) {
           const data = await response.json();
-          
-          console.log('[Apply] Raw stay data:', {
+
+          console.log("[Apply] Raw stay data:", {
             startDate: data.startDate,
             endDate: data.endDate,
-            duration: data.duration
+            duration: data.duration,
           });
-          
+
           // ✅ Calculate duration FIRST before setting state
           let duration = 0;
           if (data.duration && !isNaN(data.duration)) {
@@ -272,21 +298,21 @@ export default function ApplyPage() {
           } else if (data.startDate && data.endDate) {
             duration = calculateNightsBetween(data.startDate, data.endDate);
           }
-          
-          console.log('[Apply] Stay duration calculated:', duration);
+
+          console.log("[Apply] Stay duration calculated:", duration);
           setStayDuration(duration);
           setStayData(data);
-          
+
           // ✅ Pre-fill dates with full stay period
           if (data.startDate && data.endDate) {
             try {
               const checkIn = formatDateForInput(data.startDate);
               const checkOut = formatDateForInput(data.endDate);
-              console.log('[Apply] Formatted dates:', { checkIn, checkOut });
+              console.log("[Apply] Formatted dates:", { checkIn, checkOut });
               setValue("checkInDate", checkIn);
               setValue("checkOutDate", checkOut);
             } catch (dateError) {
-              console.error('[Apply] Date formatting error:', dateError);
+              console.error("[Apply] Date formatting error:", dateError);
             }
           }
         }
@@ -303,34 +329,38 @@ export default function ApplyPage() {
   // ✅ Pre-fill user data from session
   useEffect(() => {
     if (session?.user && stayData) {
-        const sessionUser = session.user as any; 
-        
-        reset({
-            displayName: sessionUser.name || "",
-            email: sessionUser.email || "",
-            firstName: sessionUser.firstName || "",
-            lastName: sessionUser.lastName || "",
-            role: sessionUser.role || "",
-            gender: applySchema.shape.gender.safeParse(sessionUser.gender).success
-                ? sessionUser.gender
-                : undefined, 
-            age: !isNaN(parseFloat(sessionUser.age)) && isFinite(sessionUser.age) 
-                ? Number(sessionUser.age) 
-                : undefined, 
-            mobileNumber: sessionUser.mobileNumber || "",
-            socialTwitter: sessionUser.socialTwitter || "",
-            socialLinkedin: sessionUser.socialLinkedin || "",
-            socialTelegram: sessionUser.socialTelegram || "",
-            selectedRoomId: "",
-            selectedCurrency: "",
-            // ✅ Keep the dates that were already set
-            checkInDate: formatDateForInput(stayData.startDate),
-            checkOutDate: formatDateForInput(stayData.endDate),
-        });
+      const sessionUser = session.user as any;
+
+      reset({
+        displayName: sessionUser.name || "",
+        email: sessionUser.email || "",
+        firstName: sessionUser.firstName || "",
+        lastName: sessionUser.lastName || "",
+        role: sessionUser.role || "",
+        gender: applySchema.shape.gender.safeParse(sessionUser.gender).success
+          ? sessionUser.gender
+          : undefined,
+        age:
+          !isNaN(parseFloat(sessionUser.age)) && isFinite(sessionUser.age)
+            ? Number(sessionUser.age)
+            : undefined,
+        mobileNumber: sessionUser.mobileNumber || "",
+        socialTwitter: sessionUser.socialTwitter || "",
+        socialLinkedin: sessionUser.socialLinkedin || "",
+        socialTelegram: sessionUser.socialTelegram || "",
+        selectedRoomId: "",
+        selectedCurrency: "",
+        // ✅ Keep the dates that were already set
+        checkInDate: formatDateForInput(stayData.startDate),
+        checkOutDate: formatDateForInput(stayData.endDate),
+      });
     }
   }, [session, reset, stayData]);
 
-  const handleRoomSelection = (roomId: string, currency: "USDC" | "USDT" | null) => {
+  const handleRoomSelection = (
+    roomId: string,
+    currency: "USDC" | "USDT" | null
+  ) => {
     if (!roomId) {
       setValue("selectedRoomId", "");
       setValue("selectedCurrency", "");
@@ -340,11 +370,13 @@ export default function ApplyPage() {
     }
   };
 
-  const calculateTotalPrice = (pricePerNight: number | undefined | null): string => {
+  const calculateTotalPrice = (
+    pricePerNight: number | undefined | null
+  ): string => {
     const price = Number(pricePerNight) || 0;
     const nights = calculatedNights || 0;
     const total = price * nights;
-    
+
     return isNaN(total) || total === 0 ? "0.00" : total.toFixed(2);
   };
 
@@ -428,17 +460,25 @@ export default function ApplyPage() {
               </h1>
               <p className="text-xl text-gray-600 mb-3">
                 Your application for{" "}
-                <strong className="text-[#172a46]">{stayData?.title || stayId}</strong> is now{" "}
-                <strong>under review</strong>.
+                <strong className="text-[#172a46]">
+                  {stayData?.title || stayId}
+                </strong>{" "}
+                is now <strong>under review</strong>.
               </p>
               {checkInDate && checkOutDate && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4 inline-block">
-                  <p className="text-sm text-gray-600 mb-1">Your selected dates:</p>
+                  <p className="text-sm text-gray-600 mb-1">
+                    Your selected dates:
+                  </p>
                   <p className="font-semibold text-gray-800">
-                    📅 {new Date(checkInDate).toLocaleDateString()} - {new Date(checkOutDate).toLocaleDateString()}
+                    📅 {new Date(checkInDate).toLocaleDateString()} -{" "}
+                    {new Date(checkOutDate).toLocaleDateString()}
                   </p>
                   <p className="text-sm text-blue-600 mt-1">
-                    <strong>{calculatedNights} night{calculatedNights !== 1 ? 's' : ''}</strong>
+                    <strong>
+                      {calculatedNights} night
+                      {calculatedNights !== 1 ? "s" : ""}
+                    </strong>
                   </p>
                 </div>
               )}
@@ -495,11 +535,16 @@ export default function ApplyPage() {
             {stayData && (
               <div className="mt-4 space-y-2">
                 <p className="text-md text-gray-400">
-                  📅 Available: {new Date(stayData.startDate).toLocaleDateString()} - {new Date(stayData.endDate).toLocaleDateString()}
+                  📅 Available:{" "}
+                  {new Date(stayData.startDate).toLocaleDateString()} -{" "}
+                  {new Date(stayData.endDate).toLocaleDateString()}
                 </p>
                 {stayDuration > 0 && (
                   <p className="text-sm text-gray-500">
-                    Duration: <strong className="text-gray-300">{stayDuration} nights</strong>
+                    Duration:{" "}
+                    <strong className="text-gray-300">
+                      {stayDuration} nights
+                    </strong>
                   </p>
                 )}
               </div>
@@ -589,11 +634,13 @@ export default function ApplyPage() {
                     Select Your Stay Dates
                     <span className="text-red-500">*</span>
                   </label>
-                  
+
                   {/* ✅ Event Timeline Display */}
                   <div className="bg-white border-2 border-[#172a46] rounded-xl p-4 mb-4">
                     <div className="flex items-center justify-between mb-2">
-                      <div className="text-sm font-semibold text-gray-600">Event Period:</div>
+                      <div className="text-sm font-semibold text-gray-600">
+                        Event Period:
+                      </div>
                       {stayDuration > 0 && (
                         <div className="bg-[#172a46] text-white px-3 py-1 rounded-full text-xs font-bold">
                           {stayDuration} Nights Total
@@ -602,27 +649,36 @@ export default function ApplyPage() {
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="flex-1 text-center">
-                        <div className="text-xs text-gray-500 mb-1">Check-in Available</div>
+                        <div className="text-xs text-gray-500 mb-1">
+                          Check-in Available
+                        </div>
                         <div className="font-bold text-[#172a46]">
-                          {stayData.startDate ? formatDateForDisplay(stayData.startDate) : 'Loading...'}
+                          {stayData.startDate
+                            ? formatDateForDisplay(stayData.startDate)
+                            : "Loading..."}
                         </div>
                       </div>
                       <div className="flex-shrink-0">
                         <div className="w-16 h-0.5 bg-[#172a46]"></div>
                       </div>
                       <div className="flex-1 text-center">
-                        <div className="text-xs text-gray-500 mb-1">Check-out By</div>
+                        <div className="text-xs text-gray-500 mb-1">
+                          Check-out By
+                        </div>
                         <div className="font-bold text-[#172a46]">
-                          {stayData.endDate ? formatDateForDisplay(stayData.endDate) : 'Loading...'}
+                          {stayData.endDate
+                            ? formatDateForDisplay(stayData.endDate)
+                            : "Loading..."}
                         </div>
                       </div>
                     </div>
                   </div>
 
                   <p className="text-sm text-gray-600 mb-4 text-center italic">
-                    📅 Choose any check-in and check-out dates within this period
+                    📅 Choose any check-in and check-out dates within this
+                    period
                   </p>
-                  
+
                   <div className="grid md:grid-cols-2 gap-4 mb-4">
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -631,8 +687,16 @@ export default function ApplyPage() {
                       <input
                         type="date"
                         {...register("checkInDate")}
-                        min={stayData.startDate ? formatDateForInput(stayData.startDate) : undefined}
-                        max={stayData.endDate ? formatDateForInput(stayData.endDate) : undefined}
+                        min={
+                          stayData.startDate
+                            ? formatDateForInput(stayData.startDate)
+                            : undefined
+                        }
+                        max={
+                          stayData.endDate
+                            ? formatDateForInput(stayData.endDate)
+                            : undefined
+                        }
                         className="w-full px-4 py-3 text-lg border-2 border-gray-300 rounded-xl focus:border-[#172a46] focus:outline-none transition-colors"
                       />
                       {errors.checkInDate && (
@@ -650,8 +714,17 @@ export default function ApplyPage() {
                       <input
                         type="date"
                         {...register("checkOutDate")}
-                        min={checkInDate || (stayData.startDate ? formatDateForInput(stayData.startDate) : undefined)}
-                        max={stayData.endDate ? formatDateForInput(stayData.endDate) : undefined}
+                        min={
+                          checkInDate ||
+                          (stayData.startDate
+                            ? formatDateForInput(stayData.startDate)
+                            : undefined)
+                        }
+                        max={
+                          stayData.endDate
+                            ? formatDateForInput(stayData.endDate)
+                            : undefined
+                        }
                         className="w-full px-4 py-3 text-lg border-2 border-gray-300 rounded-xl focus:border-[#172a46] focus:outline-none transition-colors"
                       />
                       {errors.checkOutDate && (
@@ -672,21 +745,34 @@ export default function ApplyPage() {
                             <Check className="text-green-600" size={20} />
                           </div>
                           <div>
-                            <div className="text-xs text-gray-500">Your Selection</div>
+                            <div className="text-xs text-gray-500">
+                              Your Selection
+                            </div>
                             <div className="font-bold text-[#172a46] text-lg">
-                              {calculatedNights} Night{calculatedNights !== 1 ? 's' : ''}
+                              {calculatedNights} Night
+                              {calculatedNights !== 1 ? "s" : ""}
                             </div>
                           </div>
                         </div>
                         <div className="text-right">
-                          <div className="text-xs text-gray-500 mb-1">Dates</div>
+                          <div className="text-xs text-gray-500 mb-1">
+                            Dates
+                          </div>
                           <div className="text-sm font-semibold text-[#172a46]">
                             {checkInDate && checkOutDate ? (
                               <>
-                                {new Date(checkInDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(checkOutDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                {new Date(checkInDate).toLocaleDateString(
+                                  "en-US",
+                                  { month: "short", day: "numeric" }
+                                )}{" "}
+                                -{" "}
+                                {new Date(checkOutDate).toLocaleDateString(
+                                  "en-US",
+                                  { month: "short", day: "numeric" }
+                                )}
                               </>
                             ) : (
-                              'Select dates'
+                              "Select dates"
                             )}
                           </div>
                         </div>
@@ -813,145 +899,172 @@ export default function ApplyPage() {
               </div>
 
               {/* Room Selection */}
-              {stayData && stayData.rooms && stayData.rooms.length > 0 && calculatedNights > 0 && (
-                <div>
-                  <label className="flex items-center gap-2 text-lg font-bold text-[#172a46] mb-3">
-                    <UsersIcon size={20} />
-                    Preferred Room & Currency (Optional)
-                  </label>
-                  <div className="space-y-4">
-                    {stayData.rooms.map((room: any) => (
-                      <div
-                        key={room.id}
-                        className={`border-2 rounded-2xl p-5 transition-all ${
-                          currentSelectedRoomId === room.id
-                            ? "border-[#172a46] bg-blue-50 shadow-md"
-                            : "border-gray-200 hover:border-gray-300"
-                        }`}
-                      >
-                        <div className="flex items-start justify-between mb-2">
-                          <h4 className="font-bold text-[#172a46] text-lg">
-                            {room.name}
-                          </h4>
-                        </div>
+              {stayData &&
+                stayData.rooms &&
+                stayData.rooms.length > 0 &&
+                calculatedNights > 0 && (
+                  <div>
+                    <label className="flex items-center gap-2 text-lg font-bold text-[#172a46] mb-3">
+                      <UsersIcon size={20} />
+                      Preferred Room & Currency (Optional)
+                    </label>
+                    <div className="space-y-4">
+                      {stayData.rooms.map((room: any) => (
+                        <div
+                          key={room.id}
+                          className={`border-2 rounded-2xl p-5 transition-all ${
+                            currentSelectedRoomId === room.id
+                              ? "border-[#172a46] bg-blue-50 shadow-md"
+                              : "border-gray-200 hover:border-gray-300"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between mb-2">
+                            <h4 className="font-bold text-[#172a46] text-lg">
+                              {room.name}
+                            </h4>
+                          </div>
 
-                        <p className="text-sm text-gray-600 mb-3">
-                          {room.description}
-                        </p>
-                        <div className="flex items-center gap-2 text-sm text-gray-500 mb-3">
+                          <p className="text-sm text-gray-600 mb-3">
+                            {room.description}
+                          </p>
+                          <div className="flex items-center gap-2 text-sm text-gray-500 mb-3">
                             <UsersIcon size={16} />
                             <span>Capacity: {room.capacity}</span>
-                        </div>
+                          </div>
 
-                        <div className="mt-4 border-t border-gray-200 pt-3">
+                          <div className="mt-4 border-t border-gray-200 pt-3">
                             <p className="text-sm font-semibold text-gray-600 mb-2 flex items-center gap-1">
-                                <DollarSign size={16} /> Select Payment Currency:
+                              <DollarSign size={16} /> Select Payment Currency:
                             </p>
                             <div className="flex gap-4">
-                                {/* USDC Option */}
-                                <label
-                                    className={`flex-1 border-2 rounded-xl cursor-pointer transition-all ${
-                                        currentSelectedRoomId === room.id && currentSelectedCurrency === "USDC"
-                                            ? "border-green-600 bg-green-50"
-                                            : "border-gray-200 hover:border-gray-300"
-                                    }`}
-                                    onClick={() => handleRoomSelection(room.id, "USDC")}
-                                >
-                                    <div className="p-3">
-                                        <input
-                                            type="radio"
-                                            name={`room_currency_${room.id}`}
-                                            className="sr-only"
-                                            checked={currentSelectedRoomId === room.id && currentSelectedCurrency === "USDC"}
-                                            readOnly
-                                        />
-                                        <div className="text-center">
-                                            <div className="font-bold text-sm text-green-700 mb-1">
-                                                ${room.priceUSDC || 0}/night
-                                            </div>
-                                            <div className="text-xs text-gray-600">
-                                                Total: <strong className="text-green-700">${calculateTotalPrice(room.priceUSDC)} USDC</strong>
-                                            </div>
-                                            <div className="text-xs text-gray-500 mt-1">
-                                                {calculatedNights} night{calculatedNights !== 1 ? 's' : ''}
-                                            </div>
-                                        </div>
+                              {/* USDC Option */}
+                              <label
+                                className={`flex-1 border-2 rounded-xl cursor-pointer transition-all ${
+                                  currentSelectedRoomId === room.id &&
+                                  currentSelectedCurrency === "USDC"
+                                    ? "border-green-600 bg-green-50"
+                                    : "border-gray-200 hover:border-gray-300"
+                                }`}
+                                onClick={() =>
+                                  handleRoomSelection(room.id, "USDC")
+                                }
+                              >
+                                <div className="p-3">
+                                  <input
+                                    type="radio"
+                                    name={`room_currency_${room.id}`}
+                                    className="sr-only"
+                                    checked={
+                                      currentSelectedRoomId === room.id &&
+                                      currentSelectedCurrency === "USDC"
+                                    }
+                                    readOnly
+                                  />
+                                  <div className="text-center">
+                                    <div className="font-bold text-sm text-green-700 mb-1">
+                                      ${room.priceUSDC || 0}/night
                                     </div>
-                                </label>
+                                    <div className="text-xs text-gray-600">
+                                      Total:{" "}
+                                      <strong className="text-green-700">
+                                        ${calculateTotalPrice(room.priceUSDC)}{" "}
+                                        USDC
+                                      </strong>
+                                    </div>
+                                    <div className="text-xs text-gray-500 mt-1">
+                                      {calculatedNights} night
+                                      {calculatedNights !== 1 ? "s" : ""}
+                                    </div>
+                                  </div>
+                                </div>
+                              </label>
 
-                                {/* USDT Option */}
-                                <label
-                                    className={`flex-1 border-2 rounded-xl cursor-pointer transition-all ${
-                                        currentSelectedRoomId === room.id && currentSelectedCurrency === "USDT"
-                                            ? "border-purple-600 bg-purple-50"
-                                            : "border-gray-200 hover:border-gray-300"
-                                    }`}
-                                    onClick={() => handleRoomSelection(room.id, "USDT")}
-                                >
-                                    <div className="p-3">
-                                        <input
-                                            type="radio"
-                                            name={`room_currency_${room.id}`}
-                                            className="sr-only"
-                                            checked={currentSelectedRoomId === room.id && currentSelectedCurrency === "USDT"}
-                                            readOnly
-                                        />
-                                        <div className="text-center">
-                                            <div className="font-bold text-sm text-purple-700 mb-1">
-                                                ${room.priceUSDT || 0}/night
-                                            </div>
-                                            <div className="text-xs text-gray-600">
-                                                Total: <strong className="text-purple-700">${calculateTotalPrice(room.priceUSDT)} USDT</strong>
-                                            </div>
-                                            <div className="text-xs text-gray-500 mt-1">
-                                                {calculatedNights} night{calculatedNights !== 1 ? 's' : ''}
-                                            </div>
-                                        </div>
+                              {/* USDT Option */}
+                              <label
+                                className={`flex-1 border-2 rounded-xl cursor-pointer transition-all ${
+                                  currentSelectedRoomId === room.id &&
+                                  currentSelectedCurrency === "USDT"
+                                    ? "border-purple-600 bg-purple-50"
+                                    : "border-gray-200 hover:border-gray-300"
+                                }`}
+                                onClick={() =>
+                                  handleRoomSelection(room.id, "USDT")
+                                }
+                              >
+                                <div className="p-3">
+                                  <input
+                                    type="radio"
+                                    name={`room_currency_${room.id}`}
+                                    className="sr-only"
+                                    checked={
+                                      currentSelectedRoomId === room.id &&
+                                      currentSelectedCurrency === "USDT"
+                                    }
+                                    readOnly
+                                  />
+                                  <div className="text-center">
+                                    <div className="font-bold text-sm text-purple-700 mb-1">
+                                      ${room.priceUSDT || 0}/night
                                     </div>
-                                </label>
+                                    <div className="text-xs text-gray-600">
+                                      Total:{" "}
+                                      <strong className="text-purple-700">
+                                        ${calculateTotalPrice(room.priceUSDT)}{" "}
+                                        USDT
+                                      </strong>
+                                    </div>
+                                    <div className="text-xs text-gray-500 mt-1">
+                                      {calculatedNights} night
+                                      {calculatedNights !== 1 ? "s" : ""}
+                                    </div>
+                                  </div>
+                                </div>
+                              </label>
                             </div>
+                          </div>
                         </div>
+                      ))}
 
-                      </div>
-                    ))}
-
-                    {/* No Room Preference */}
-                    <label
-                      className={`relative border-2 rounded-2xl p-5 cursor-pointer transition-all block ${
-                        currentSelectedRoomId === ""
-                          ? "border-gray-400 bg-gray-50 shadow-md"
-                          : "border-gray-200 hover:border-gray-300"
-                      }`}
-                      onClick={() => handleRoomSelection("", null)}
-                    >
+                      {/* No Room Preference */}
+                      <label
+                        className={`relative border-2 rounded-2xl p-5 cursor-pointer transition-all block ${
+                          currentSelectedRoomId === ""
+                            ? "border-gray-400 bg-gray-50 shadow-md"
+                            : "border-gray-200 hover:border-gray-300"
+                        }`}
+                        onClick={() => handleRoomSelection("", null)}
+                      >
                         <input
-                            type="radio"
-                            {...register("selectedRoomId")}
-                            value=""
-                            className="sr-only"
+                          type="radio"
+                          {...register("selectedRoomId")}
+                          value=""
+                          className="sr-only"
                         />
                         <h4 className="font-bold text-gray-600 text-lg mb-1">
-                            No Room Preference (Default)
+                          No Room Preference (Default)
                         </h4>
                         <p className="text-sm text-gray-500">
-                            I will accept any available room, and the currency will be determined upon approval.
+                          I will accept any available room, and the currency
+                          will be determined upon approval.
                         </p>
                         {currentSelectedRoomId === "" && (
-                            <div className="absolute top-3 right-3 w-6 h-6 bg-gray-500 rounded-full flex items-center justify-center">
-                                <Check size={16} className="text-white" />
-                            </div>
+                          <div className="absolute top-3 right-3 w-6 h-6 bg-gray-500 rounded-full flex items-center justify-center">
+                            <Check size={16} className="text-white" />
+                          </div>
                         )}
-                    </label>
+                      </label>
+                    </div>
+
+                    {currentSelectedRoomId &&
+                      currentSelectedRoomId !== "" &&
+                      errors.selectedCurrency && (
+                        <p className="text-red-500 text-sm mt-2 ml-1 flex items-center gap-1">
+                          <AlertCircle size={14} />
+                          {errors.selectedCurrency.message}
+                        </p>
+                      )}
                   </div>
-                  
-                  {currentSelectedRoomId && currentSelectedRoomId !== "" && errors.selectedCurrency && (
-                    <p className="text-red-500 text-sm mt-2 ml-1 flex items-center gap-1">
-                      <AlertCircle size={14} />
-                      {errors.selectedCurrency.message}
-                    </p>
-                  )}
-                </div>
-              )}
+                )}
 
               {/* Name Fields */}
               <div className="grid md:grid-cols-2 gap-6">
@@ -1028,8 +1141,12 @@ export default function ApplyPage() {
                 </h4>
                 <ul className="space-y-2 text-gray-700">
                   <li>✓ We review your application within 24-48 hours</li>
-                  <li>✓ You'll receive an email notification with the decision</li>
-                  <li>✓ If approved, you'll complete payment via your dashboard</li>
+                  <li>
+                    ✓ You'll receive an email notification with the decision
+                  </li>
+                  <li>
+                    ✓ If approved, you'll complete payment via your dashboard
+                  </li>
                   <li>✓ Once paid, you're confirmed for the stay!</li>
                 </ul>
               </div>
@@ -1075,7 +1192,10 @@ export default function ApplyPage() {
                   </>
                 ) : (
                   <>
-                    <span>Submit Application ({calculatedNights} night{calculatedNights !== 1 ? 's' : ''})</span>
+                    <span>
+                      Submit Application ({calculatedNights} night
+                      {calculatedNights !== 1 ? "s" : ""})
+                    </span>
                     <ArrowRight size={22} />
                   </>
                 )}
