@@ -147,126 +147,127 @@ export default function PaymentPage() {
     return () => clearInterval(interval);
   }, [status, bookingId]);
 
-  const handlePay = async () => {
-    if (!booking || !address || !isConnected) return;
+const handlePay = async () => {
+  if (!booking || !address || !isConnected) return;
 
-    setError(null);
-    setStatus("sending");
+  setError(null);
+  setStatus("sending");
 
-    try {
-      // ============================================
-      // Determine the exact amount based on SELECTED token AND room price
-      // This ensures we use the room-specific price if available.
-      // Note: The issue with 0.01 vs 1.0 is in the backend/data layer,
-      // but we ensure the front-end uses the locked/expected value if available.
-      // ============================================
-      const amount =
-        selectedToken === "USDC"
-          ? booking.selectedRoomPriceUSDC || booking.stay.priceUSDC
-          : booking.selectedRoomPriceUSDT || booking.stay.priceUSDT;
+  try {
+    const amount =
+      selectedToken === "USDC"
+        ? booking.selectedRoomPriceUSDC || booking.stay.priceUSDC
+        : booking.selectedRoomPriceUSDT || booking.stay.priceUSDT;
 
-      const chain = chainConfig[selectedChain];
-      if (!chain) {
-        throw new Error("Selected chain not supported");
-      } // Check if token is supported on selected chain
-
-      const tokenInfo = chain.tokens[selectedToken];
-      if (!tokenInfo) {
-        throw new Error(`${selectedToken} not supported on ${chain.name}`);
-      } // Validate treasury address
-
-      console.log("Treasury address:", treasuryAddress);
-      if (
-        !treasuryAddress ||
-        treasuryAddress === "0x0000000000000000000000000000000000000000"
-      ) {
-        throw new Error("Invalid treasury address configuration");
-      } // 1. 🔒 CRITICAL STEP: Lock the selected payment details in the database
-
-      console.log("Locking payment details in database...");
-      const lockRes = await fetch("/api/bookings/lock-payment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          bookingId: booking.bookingId,
-          paymentToken: selectedToken,
-          paymentAmount: amount, // Use the dynamically calculated amount
-          chainId: selectedChain,
-        }),
-      });
-      if (!lockRes.ok) {
-        const { error } = await lockRes.json();
-        throw new Error(
-          error || "Failed to lock payment details. Please refresh."
-        );
-      }
-      console.log("Payment details locked successfully."); // Optimistically update the booking state with the locked details
-
-      setBooking((prev) =>
-        prev
-          ? {
-              ...prev,
-              paymentToken: selectedToken,
-              paymentAmount: amount,
-              chainId: selectedChain,
-            }
-          : null
-      ); // Switch network if needed
-
-      if (walletChainId !== selectedChain) {
-        console.log(`Switching to chain ${selectedChain}...`);
-        await switchChain({ chainId: selectedChain }); // Wait for network switch
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-      }
-
-      const amountBaseUnits = parseUnits(amount.toString(), tokenInfo.decimals);
-
-      console.log("Payment details:", {
-        token: tokenInfo.address,
-        to: treasuryAddress,
-        amount: amountBaseUnits.toString(),
-        decimals: tokenInfo.decimals,
-      }); // Encode transfer function with correct treasury address
-
-      const data = encodeFunctionData({
-        abi: erc20Abi,
-        functionName: "transfer",
-        args: [treasuryAddress as `0x${string}`, amountBaseUnits],
-      });
-
-      console.log("Transaction data:", data); // Send transaction
-
-      const tx = await sendTransactionAsync({
-        to: tokenInfo.address as `0x${string}`,
-        data: data,
-      });
-
-      console.log("Transaction sent:", tx); // Submit for verification
-
-      setStatus("verifying");
-      const res = await fetch("/api/payments/submit-payment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          bookingId: booking.bookingId,
-          txHash: tx,
-          chainId: selectedChain,
-          paymentToken: selectedToken,
-        }),
-      });
-
-      if (!res.ok) {
-        const { error } = await res.json();
-        throw new Error(error || "Failed to submit transaction");
-      }
-
-      console.log("Transaction submitted for verification");
-    } catch (err: any) {
-      console.error("Payment error:", err);
-      setError(err.message || "Payment failed");
-      setStatus("ready");
+    const chain = chainConfig[selectedChain];
+    if (!chain) {
+      throw new Error("Selected chain not supported");
     }
-  }; // Render states
+
+    const tokenInfo = chain.tokens[selectedToken];
+    if (!tokenInfo) {
+      throw new Error(`${selectedToken} not supported on ${chain.name}`);
+    }
+
+    // ✅ FIXED: Validate treasury address format
+    console.log("Treasury address:", treasuryAddress);
+    if (!treasuryAddress || !/^0x[a-fA-F0-9]{40}$/i.test(treasuryAddress)) {
+      throw new Error("Invalid treasury address configuration");
+    }
+
+    // 🔒 CRITICAL STEP: Lock the selected payment details in the database
+    console.log("Locking payment details in database...");
+    const lockRes = await fetch("/api/bookings/lock-payment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        bookingId: booking.bookingId,
+        paymentToken: selectedToken,
+        paymentAmount: amount,
+        chainId: selectedChain,
+      }),
+    });
+    
+    if (!lockRes.ok) {
+      const { error } = await lockRes.json();
+      throw new Error(
+        error || "Failed to lock payment details. Please refresh."
+      );
+    }
+    
+    console.log("Payment details locked successfully.");
+
+    // Optimistically update the booking state with the locked details
+    setBooking((prev) =>
+      prev
+        ? {
+            ...prev,
+            paymentToken: selectedToken,
+            paymentAmount: amount,
+            chainId: selectedChain,
+          }
+        : null
+    );
+
+    // Switch network if needed
+    if (walletChainId !== selectedChain) {
+      console.log(`Switching to chain ${selectedChain}...`);
+      await switchChain({ chainId: selectedChain });
+      // Wait for network switch
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+    }
+
+    const amountBaseUnits = parseUnits(amount.toString(), tokenInfo.decimals);
+
+    console.log("Payment details:", {
+      token: tokenInfo.address,
+      to: treasuryAddress,
+      amount: amountBaseUnits.toString(),
+      decimals: tokenInfo.decimals,
+    });
+
+    // Encode transfer function with correct treasury address
+    const data = encodeFunctionData({
+      abi: erc20Abi,
+      functionName: "transfer",
+      args: [treasuryAddress as `0x${string}`, amountBaseUnits],
+    });
+
+    console.log("Transaction data:", data);
+
+    // Send transaction
+    const tx = await sendTransactionAsync({
+      to: tokenInfo.address as `0x${string}`,
+      data: data,
+    });
+
+    console.log("Transaction sent:", tx);
+
+    // Submit for verification
+    setStatus("verifying");
+    const res = await fetch("/api/payments/submit-payment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        bookingId: booking.bookingId,
+        txHash: tx,
+        chainId: selectedChain,
+        paymentToken: selectedToken,
+      }),
+    });
+
+    if (!res.ok) {
+      const { error } = await res.json();
+      throw new Error(error || "Failed to submit transaction");
+    }
+
+    console.log("Transaction submitted for verification");
+  } catch (err: any) {
+    console.error("Payment error:", err);
+    setError(err.message || "Payment failed");
+    setStatus("ready");
+  }
+};
 
   if (status === "loading") {
     return (
