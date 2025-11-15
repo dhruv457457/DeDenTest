@@ -27,44 +27,47 @@ import {
 } from "lucide-react";
 
 // ✅ FIXED ZOD SCHEMA with Refinement
-const applySchema = z.object({
-  displayName: z.string().min(3, "Name is required"),
-  email: z.string().email("Invalid email address"),
-  firstName: z.string().optional(),
-  lastName: z.string().optional(),
+const applySchema = z
+  .object({
+    displayName: z.string().min(3, "Name is required"),
+    email: z.string().email("Invalid email address"),
+    firstName: z.string().optional(),
+    lastName: z.string().optional(),
 
-  gender: z.enum(["Male", "Female", "Other", "Prefer not to say"], {
-    message: "Please select your gender",
-  }),
-  age: z
-    .number()
-    .min(18, "You must be at least 18 years old")
-    .max(120, "Invalid age"),
-  mobileNumber: z.string().min(10, "Valid mobile number is required"),
+    gender: z.enum(["Male", "Female", "Other", "Prefer not to say"], {
+      message: "Please select your gender",
+    }),
+    age: z
+      .number()
+      .min(18, "You must be at least 18 years old")
+      .max(120, "Invalid age"),
+    mobileNumber: z.string().min(10, "Valid mobile number is required"),
 
-  // ROOM SELECTION
-  selectedRoomId: z.string().optional(),
-  // CURRENCY SELECTION
-  selectedCurrency: z.string().optional(), 
+    // ROOM SELECTION
+    selectedRoomId: z.string().optional(),
+    // CURRENCY SELECTION
+    selectedCurrency: z.string().optional(),
 
-  role: z.string().optional(),
-  socialTwitter: z.string().optional(),
-  socialLinkedin: z.string().optional(),
-  socialTelegram: z.string().optional(),
-}).refine(
+    role: z.string().optional(),
+    socialTwitter: z.string().optional(),
+    socialLinkedin: z.string().optional(),
+    socialTelegram: z.string().optional(),
+  })
+  .refine(
     (data) => {
-        // If a room is selected (not empty string), check for currency selection
-        if (data.selectedRoomId && data.selectedRoomId !== "") {
-            return ["USDC", "USDT"].includes(data.selectedCurrency as string);
-        }
-        // If no room is selected, currency can be anything (including undefined/empty)
-        return true;
+      // If a room is selected (not empty string), check for currency selection
+      if (data.selectedRoomId && data.selectedRoomId !== "") {
+        return ["USDC", "USDT"].includes(data.selectedCurrency as string);
+      }
+      // If no room is selected, currency can be anything (including undefined/empty)
+      return true;
     },
     {
-        message: "Please select a payment currency (USDC or USDT) for your preferred room.",
-        path: ["selectedCurrency"], 
+      message:
+        "Please select a payment currency (USDC or USDT) for your preferred room.",
+      path: ["selectedCurrency"],
     }
-);
+  );
 
 type ApplyFormInputs = z.infer<typeof applySchema>;
 
@@ -98,19 +101,21 @@ export default function ApplyPage() {
   const [apiError, setApiError] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
   const [stayRooms, setStayRooms] = useState<any[]>([]);
-
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [isSuccess]);
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
     reset,
     watch,
-    setValue, 
+    setValue,
   } = useForm<ApplyFormInputs>({
     resolver: zodResolver(applySchema),
     defaultValues: {
-        selectedRoomId: "", 
-        selectedCurrency: "", // Initialize selected currency
+      selectedRoomId: "",
+      selectedCurrency: "", // Initialize selected currency
     },
   });
 
@@ -119,7 +124,10 @@ export default function ApplyPage() {
   const currentSelectedCurrency = watch("selectedCurrency");
 
   // Custom function to handle combined room and currency selection
-  const handleRoomSelection = (roomId: string, currency: "USDC" | "USDT" | null) => {
+  const handleRoomSelection = (
+    roomId: string,
+    currency: "USDC" | "USDT" | null
+  ) => {
     // If selecting "No Preference"
     if (!roomId) {
       setValue("selectedRoomId", "");
@@ -154,28 +162,29 @@ export default function ApplyPage() {
   // Pre-fill form with session data (kept as is)
   useEffect(() => {
     if (session?.user) {
-        const sessionUser = session.user as any; 
-        
-        reset({
-            displayName: sessionUser.name || "",
-            email: sessionUser.email || "",
-            firstName: sessionUser.firstName || "",
-            lastName: sessionUser.lastName || "",
-            role: sessionUser.role || "",
-            gender: applySchema.shape.gender.safeParse(sessionUser.gender).success
-                ? sessionUser.gender
-                : undefined, 
-            age: !isNaN(parseFloat(sessionUser.age)) && isFinite(sessionUser.age) 
-                ? Number(sessionUser.age) 
-                : undefined, 
-            mobileNumber: sessionUser.mobileNumber || "",
-            socialTwitter: sessionUser.socialTwitter || "",
-            socialLinkedin: sessionUser.socialLinkedin || "",
-            socialTelegram: sessionUser.socialTelegram || "",
-            // Reset room/currency on prefill
-            selectedRoomId: "",
-            selectedCurrency: "",
-        });
+      const sessionUser = session.user as any;
+
+      reset({
+        displayName: sessionUser.name || "",
+        email: sessionUser.email || "",
+        firstName: sessionUser.firstName || "",
+        lastName: sessionUser.lastName || "",
+        role: sessionUser.role || "",
+        gender: applySchema.shape.gender.safeParse(sessionUser.gender).success
+          ? sessionUser.gender
+          : undefined,
+        age:
+          !isNaN(parseFloat(sessionUser.age)) && isFinite(sessionUser.age)
+            ? Number(sessionUser.age)
+            : undefined,
+        mobileNumber: sessionUser.mobileNumber || "",
+        socialTwitter: sessionUser.socialTwitter || "",
+        socialLinkedin: sessionUser.socialLinkedin || "",
+        socialTelegram: sessionUser.socialTelegram || "",
+        // Reset room/currency on prefill
+        selectedRoomId: "",
+        selectedCurrency: "",
+      });
     }
   }, [session, reset]);
 
@@ -250,21 +259,21 @@ export default function ApplyPage() {
   if (isSuccess) {
     return (
       <div className="min-h-screen bg-[#E7E4DF]">
-        <section className="bg-[#172a46] pt-20 pb-32 relative">
+        <section className="bg-[#E7E4DF] pt-20 pb-32 relative h-full">
           <div className="max-w-4xl mx-auto px-6 text-center">
-            <div className="bg-white rounded-3xl p-12 md:p-16 shadow-2xl">
+            <div className="bg-[#172a46] rounded-3xl p-12 md:p-16 shadow-2xl">
               <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <Check className="text-green-600" size={48} strokeWidth={3} />
               </div>
-              <h1 className="text-4xl md:text-5xl font-bold text-[#172a46] mb-4">
+              <h1 className="text-4xl md:text-5xl font-bold text-[#E7E4DF] mb-4">
                 Application Submitted!
               </h1>
-              <p className="text-xl text-gray-600 mb-3">
+              <p className="text-xl text-gray-400 mb-3">
                 Your application for{" "}
-                <strong className="text-[#172a46]">{stayId}</strong> is now{" "}
+                <strong className="text-[#E7E4DF]">{stayId}</strong> is now{" "}
                 <strong>under review</strong>.
               </p>
-              <p className="text-gray-500 mb-8">
+              <p className="text-gray-300 mb-8">
                 We'll notify you via email and update your dashboard once it's
                 approved. This typically takes 24-48 hours.
               </p>
@@ -272,16 +281,10 @@ export default function ApplyPage() {
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Link
                   href="/dashboard"
-                  className="bg-[#172a46] text-white text-lg font-semibold py-4 px-8 rounded-full inline-flex items-center justify-center gap-3 hover:scale-105 transition-transform shadow-xl"
+                  className="bg-[#E7E4DF] text-[#172a46] text-lg font-semibold py-4 px-8 rounded-full inline-flex items-center justify-center gap-3 hover:scale-105 transition-transform shadow-xl"
                 >
                   <span>View My Dashboard</span>
                   <ArrowRight size={20} />
-                </Link>
-                <Link
-                  href={`/stay/${stayId}`}
-                  className="bg-gray-100 text-[#172a46] text-lg font-semibold py-4 px-8 rounded-full inline-flex items-center justify-center gap-3 hover:bg-gray-200 transition-colors"
-                >
-                  <span>Back to Stay Details</span>
                 </Link>
               </div>
             </div>
@@ -531,60 +534,75 @@ export default function ApplyPage() {
                           {room.description}
                         </p>
                         <div className="flex items-center gap-2 text-sm text-gray-500 mb-3">
-                            <UsersIcon size={16} />
-                            <span>Capacity: {room.capacity}</span>
+                          <UsersIcon size={16} />
+                          <span>Capacity: {room.capacity}</span>
                         </div>
 
                         {/* Currency Selection for the Room */}
                         <div className="mt-4 border-t border-gray-200 pt-3">
-                            <p className="text-sm font-semibold text-gray-600 mb-2 flex items-center gap-1">
-                                <DollarSign size={16} /> Select Payment Currency:
-                            </p>
-                            <div className="flex gap-4">
-                                {/* USDC Option */}
-                                <label
-                                    className={`flex items-center justify-center p-3 flex-1 border-2 rounded-xl cursor-pointer transition-all ${
-                                        currentSelectedRoomId === room.id && currentSelectedCurrency === "USDC"
-                                            ? "border-green-600 bg-green-50"
-                                            : "border-gray-200 hover:border-gray-300"
-                                    }`}
-                                    onClick={() => handleRoomSelection(room.id, "USDC")}
-                                >
-                                    <input
-                                        type="radio"
-                                        name={`room_currency_${room.id}`}
-                                        className="sr-only"
-                                        checked={currentSelectedRoomId === room.id && currentSelectedCurrency === "USDC"}
-                                        readOnly
-                                    />
-                                    <div>
-                                        <div className="font-bold text-md text-green-700">{room.priceUSDC || room.price || 'N/A'} USDC</div>
-                                    </div>
-                                </label>
+                          <p className="text-sm font-semibold text-gray-600 mb-2 flex items-center gap-1">
+                            <DollarSign size={16} /> Select Payment Currency:
+                          </p>
+                          <div className="flex gap-4">
+                            {/* USDC Option */}
+                            <label
+                              className={`flex items-center justify-center p-3 flex-1 border-2 rounded-xl cursor-pointer transition-all ${
+                                currentSelectedRoomId === room.id &&
+                                currentSelectedCurrency === "USDC"
+                                  ? "border-green-600 bg-green-50"
+                                  : "border-gray-200 hover:border-gray-300"
+                              }`}
+                              onClick={() =>
+                                handleRoomSelection(room.id, "USDC")
+                              }
+                            >
+                              <input
+                                type="radio"
+                                name={`room_currency_${room.id}`}
+                                className="sr-only"
+                                checked={
+                                  currentSelectedRoomId === room.id &&
+                                  currentSelectedCurrency === "USDC"
+                                }
+                                readOnly
+                              />
+                              <div>
+                                <div className="font-bold text-md text-green-700">
+                                  {room.priceUSDC || room.price || "N/A"} USDC
+                                </div>
+                              </div>
+                            </label>
 
-                                {/* USDT Option */}
-                                <label
-                                    className={`flex items-center justify-center p-3 flex-1 border-2 rounded-xl cursor-pointer transition-all ${
-                                        currentSelectedRoomId === room.id && currentSelectedCurrency === "USDT"
-                                            ? "border-purple-600 bg-purple-50"
-                                            : "border-gray-200 hover:border-gray-300"
-                                    }`}
-                                    onClick={() => handleRoomSelection(room.id, "USDT")}
-                                >
-                                    <input
-                                        type="radio"
-                                        name={`room_currency_${room.id}`}
-                                        className="sr-only"
-                                        checked={currentSelectedRoomId === room.id && currentSelectedCurrency === "USDT"}
-                                        readOnly
-                                    />
-                                    <div>
-                                        <div className="font-bold text-md text-purple-700">{room.priceUSDT || room.price || 'N/A'} USDT</div>
-                                    </div>
-                                </label>
-                            </div>
+                            {/* USDT Option */}
+                            <label
+                              className={`flex items-center justify-center p-3 flex-1 border-2 rounded-xl cursor-pointer transition-all ${
+                                currentSelectedRoomId === room.id &&
+                                currentSelectedCurrency === "USDT"
+                                  ? "border-purple-600 bg-purple-50"
+                                  : "border-gray-200 hover:border-gray-300"
+                              }`}
+                              onClick={() =>
+                                handleRoomSelection(room.id, "USDT")
+                              }
+                            >
+                              <input
+                                type="radio"
+                                name={`room_currency_${room.id}`}
+                                className="sr-only"
+                                checked={
+                                  currentSelectedRoomId === room.id &&
+                                  currentSelectedCurrency === "USDT"
+                                }
+                                readOnly
+                              />
+                              <div>
+                                <div className="font-bold text-md text-purple-700">
+                                  {room.priceUSDT || room.price || "N/A"} USDT
+                                </div>
+                              </div>
+                            </label>
+                          </div>
                         </div>
-
                       </div>
                     ))}
 
@@ -597,37 +615,41 @@ export default function ApplyPage() {
                       }`}
                       onClick={() => handleRoomSelection("", null)}
                     >
-                        <input
-                            type="radio"
-                            {...register("selectedRoomId")}
-                            value=""
-                            className="sr-only"
-                        />
-                        <h4 className="font-bold text-gray-600 text-lg mb-1">
-                            No Room Preference (Default)
-                        </h4>
-                        <p className="text-sm text-gray-500">
-                            I will accept any available room, and the currency will be determined upon approval.
-                        </p>
-                        {currentSelectedRoomId === "" && (
-                            <div className="absolute top-3 right-3 w-6 h-6 bg-gray-500 rounded-full flex items-center justify-center">
-                                <Check size={16} className="text-white" />
-                            </div>
-                        )}
+                      <input
+                        type="radio"
+                        {...register("selectedRoomId")}
+                        value=""
+                        className="sr-only"
+                      />
+                      <h4 className="font-bold text-gray-600 text-lg mb-1">
+                        No Room Preference (Default)
+                      </h4>
+                      <p className="text-sm text-gray-500">
+                        I will accept any available room, and the currency will
+                        be determined upon approval.
+                      </p>
+                      {currentSelectedRoomId === "" && (
+                        <div className="absolute top-3 right-3 w-6 h-6 bg-gray-500 rounded-full flex items-center justify-center">
+                          <Check size={16} className="text-white" />
+                        </div>
+                      )}
                     </label>
                   </div>
-                  
+
                   {/* Currency Error Message */}
-                  {currentSelectedRoomId && currentSelectedRoomId !== "" && errors.selectedCurrency && (
-                    <p className="text-red-500 text-sm mt-2 ml-1 flex items-center gap-1">
-                      <AlertCircle size={14} />
-                      {errors.selectedCurrency.message}
-                    </p>
-                  )}
+                  {currentSelectedRoomId &&
+                    currentSelectedRoomId !== "" &&
+                    errors.selectedCurrency && (
+                      <p className="text-red-500 text-sm mt-2 ml-1 flex items-center gap-1">
+                        <AlertCircle size={14} />
+                        {errors.selectedCurrency.message}
+                      </p>
+                    )}
                   {/* General Room ID error is no longer strictly needed due to refinement */}
-                  
+
                   <p className="text-sm text-gray-500 mt-2 ml-1">
-                    If you select a preferred room, you must also select a payment currency.
+                    If you select a preferred room, you must also select a
+                    payment currency.
                   </p>
                 </div>
               )}
