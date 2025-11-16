@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { Star, Check, Calendar, Users, DollarSign, MapPin } from "lucide-react";
 import StayApplyButton from "@/components/StayApplyButton";
-
+import { AmenitiesBlock } from "@/components/AmenitiesBlock";
+import Link from "next/link";
 type StayData = {
   id: string;
   stayId: string;
@@ -49,12 +50,31 @@ export default function StayDetailsClient({ stay }: { stay: StayData }) {
       <section className="relative bg-[#E7E4DF] pt-8 pb-12">
         <div className="max-w-screen-xl mx-auto px-6">
           {/* Breadcrumb */}
-          <div className="text-gray-600 text-sm mb-8">
-            <span className="hover:text-[#172a46] cursor-pointer">Home</span>
-            <span className="mx-2">/</span>
-            <span className="hover:text-[#172a46] cursor-pointer">Stays</span>
-            <span className="mx-2">/</span>
-            <span className="text-[#172a46] font-semibold">{stay.title}</span>
+          <div className="text-gray-600 text-sm mb-8 flex items-center gap-2">
+            <Link
+              href="/"
+              className="hover:text-[#172a46] transition-colors cursor-pointer"
+            >
+              Home
+            </Link>
+
+            <span>/</span>
+
+            <Link
+              href="/villas"
+              className="hover:text-[#172a46] transition-colors cursor-pointer"
+            >
+              Stays
+            </Link>
+
+            <span>/</span>
+
+            <Link
+              href={`/stay/${stay.stayId}`}
+              className="hover:text-[#172a46] transition-colors cursor-pointer font-semibold"
+            >
+              {stay.title}
+            </Link>
           </div>
 
           <div className="grid lg:grid-cols-2 gap-12 items-start">
@@ -215,49 +235,18 @@ export default function StayDetailsClient({ stay }: { stay: StayData }) {
       <section className="bg-[#172a46] py-20 relative px-6 md:px-30">
         <div className="max-w-screen-xl mx-auto px-6 relative z-10">
           <div className="grid md:grid-cols-2 gap-12">
-            {/* Amenities */}
+            {/* --- AMENITIES --- */}
             {stay.amenities && stay.amenities.length > 0 && (
-              <div className="bg-white/5 backdrop-blur-sm rounded-xl p-8 border-2 border-white/10 hover:border-white/20 transition-all">
-                <h3 className="text-3xl font-bold text-white mb-8 flex items-center gap-3">
-                  What's Included
-                </h3>
-                <div className="space-y-4">
-                  {stay.amenities.map((amenity, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-start gap-3 text-white bg-white/5 p-4 rounded-xl hover:bg-white/10 transition-all"
-                    >
-                      <div className="w-6 h-6 rounded-full bg-[#F5F5F3] flex items-center justify-center flex-shrink-0 mt-1">
-                        <Check size={16} className="text-[#172a46]" />
-                      </div>
-                      <span className="font-inter text-lg text-gray-100">
-                        {amenity}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <AmenitiesBlock title="What's Included" items={stay.amenities} />
             )}
 
-            {/* Highlights */}
+            {/* --- HIGHLIGHTS --- */}
             {stay.highlights && stay.highlights.length > 0 && (
-              <div className="bg-white/5 backdrop-blur-sm rounded-xl p-8 border-2 border-white/10 hover:border-white/20 transition-all">
-                <h3 className="text-3xl font-bold text-white mb-8 flex items-center gap-3">
-                  What to Expect
-                </h3>
-                <div className="space-y-4">
-                  {stay.highlights.map((highlight, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-start gap-3 text-white bg-white/5 p-4 rounded-xl hover:bg-white/10 transition-all"
-                    >
-                      <span className="font-inter text-lg text-gray-100">
-                        {highlight}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <AmenitiesBlock
+                title="What to Expect"
+                items={stay.highlights}
+                isHighlight
+              />
             )}
           </div>
         </div>
@@ -270,21 +259,21 @@ export default function StayDetailsClient({ stay }: { stay: StayData }) {
             Room Options
           </h2>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-4 gap-8">
             {stay.rooms.map((room) => (
               <div
                 key={room.id}
                 className="bg-white rounded-xl overflow-hidden shadow-xl hover:shadow-2xl transition-all hover:scale-[1.02] border-4 border-[#172a46]"
               >
                 {room.images && room.images.length > 0 ? (
-                  <div className="h-54 relative overflow-hidden">
+                  <div className="h-60 relative overflow-hidden">
                     <img
                       src={room.images[0]}
                       alt={room.name}
                       className="w-full h-full object-cover hover:scale-110 transition-transform duration-500"
                     />
                     <div className="absolute top-4 right-4 bg-[#172a46] text-white px-4 py-2 rounded-full font-bold text-lg">
-                      ${room.price}
+                      ${room.priceUSDT}
                     </div>
                   </div>
                 ) : (
@@ -296,10 +285,10 @@ export default function StayDetailsClient({ stay }: { stay: StayData }) {
                   <h4 className="text-2xl font-bold text-[#172a46] mb-2">
                     {room.name}
                   </h4>
-                  <p className="font-inter text-gray-600 mb-4 ">
+                  <p className="font-inter text-gray-600 mb-2 tracking-tighter">
                     {room.description}
                   </p>
-                  <div className="flex items-center gap-2 text-[#172a46] mb-4 bg-[#172a46]/5 p-3 rounded-xl">
+                  <div className="flex items-center gap-2 text-[#172a46] mb-2 bg-[#172a46]/5 p-3 rounded-xl">
                     <Users size={18} />
                     <span className="font-semibold">
                       Capacity: {room.capacity}{" "}
@@ -307,22 +296,22 @@ export default function StayDetailsClient({ stay }: { stay: StayData }) {
                     </span>
                   </div>
                   {room.amenities && room.amenities.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mb-6">
+                    <div className="flex flex-wrap gap-2 mb-2">
                       {room.amenities
                         .slice(0, 4)
                         .map((amenity: string, idx: number) => (
                           <span
                             key={idx}
-                            className="px-4 py-2 bg-[#172a46]/10 text-[#172a46] text-sm rounded-full font-semibold border-2 border-[#172a46]/20"
+                            className="px-2 py-1 bg-[#172a46]/10 text-[#172a46] text-xs rounded-full font-semibold border-2 border-[#172a46]/20"
                           >
                             {amenity}
                           </span>
                         ))}
                     </div>
                   )}
-                  <div className="flex items-baseline gap-2 pt-4 border-t-2 border-gray-200">
+                  <div className="flex items-baseline gap-2 pt-2 border-t-2 border-gray-200">
                     <span className="text-4xl font-bold text-[#172a46]">
-                      $ {room.price}
+                      ${room.priceUSDT}
                     </span>
                     <span className="text-lg text-gray-500">USDC</span>
                   </div>

@@ -1,7 +1,9 @@
+"use client";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight, Star } from "lucide-react";
 import { VillaSlider } from "@/components/VillaSlider";
+import { useEffect } from "react";
 
 // SVG component for the wave dividers
 const WaveDivider: React.FC<{
@@ -69,6 +71,9 @@ const testimonials = [
 ];
 
 export default function HomePage() {
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
   return (
     <div className="text-white">
       {/* Hero Section */}

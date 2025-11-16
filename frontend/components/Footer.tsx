@@ -44,7 +44,7 @@ const Footer = () => {
             <ul className="space-y-3 text-sm text-gray-200">
               <li>
                 <Link
-                  href="/about"
+                  href="/#about"
                   className="hover:text-white transition-colors"
                 >
                   About DeDen
@@ -58,17 +58,10 @@ const Footer = () => {
                   Upcoming Stays
                 </Link>
               </li>
+
               <li>
                 <Link
-                  href="/collaborate"
-                  className="hover:text-white transition-colors"
-                >
-                  Collaborate with Us
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/experience"
+                  href="/#gallery"
                   className="hover:text-white transition-colors"
                 >
                   The Experience
@@ -99,8 +92,8 @@ const Footer = () => {
 
         {/* Bottom Navigation Bar */}
         <div
-          className="bg-[#E7E4DF] text-black rounded-full py-2 px-3 
-          max-w-2xl mx-auto flex justify-between items-center mb-14 shadow-lg"
+          className=" hidden md:flex bg-[#E7E4DF] text-black rounded-full py-2 px-3 
+          max-w-2xl mx-auto  justify-between items-center mb-14 shadow-lg"
         >
           {/* HOME */}
           <Link
@@ -130,7 +123,7 @@ const Footer = () => {
 
           {/* EXPERIENCES */}
           <Link
-            href="/experiences"
+            href="/#gallery"
             className={`font-semibold text-base py-5 px-10 rounded-full transition-all
               ${
                 isActive("/experiences")
@@ -156,9 +149,9 @@ const Footer = () => {
         </div>
       </div>
 
-      <div className="w-full text-center bg-[#172a46] mt-16 -mb-20">
+      <div className="w-full text-center bg-[#172a46] mt-16 -mb-14 md:-mb-20">
         <h1
-          className="text-4xl md:text-8xl lg:text-8xl font-medium text-[#E7E4DF] leading-[0.95] tracking-tight"
+          className="text-2xl md:text-8xl lg:text-8xl font-medium text-[#E7E4DF] leading-[0.95] tracking-tight"
           style={{
             fontFamily: "'New Rocker', cursive",
             letterSpacing: "-0.07em",
