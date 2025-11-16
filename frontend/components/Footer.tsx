@@ -86,8 +86,8 @@ const Footer = () => {
           </div>
           <div className="col-span-2 md:col-span-2">
             <p className="text-sm text-gray-400 mb-3">Get in touch</p>
-            <p className="text-sm text-gray-200 mb-1">+91 55556 55556</p>
-            <p className="text-sm text-gray-200">deden@gmail.com</p>
+            <p className="text-sm text-gray-200 mb-1">+91 91615 56758</p>
+            <p className="text-sm text-gray-200">support@deden.space</p>
           </div>
         </div>
       </div>

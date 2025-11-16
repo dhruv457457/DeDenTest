@@ -371,7 +371,7 @@ export default function HomePage() {
             {/* Image 4 */}
             <div className="relative h-56 md:h-96 col-span-3 rounded-3xl overflow-hidden shadow-lg hover:shadow-2xl transition-transform hover:scale-[1.02]">
               <Image
-                src="/images/dedenbangalore4.jpeg"
+                src="/images/dedenbangalore6.jpeg"
                 alt="DeDen Bangalore Villa 4"
                 fill
                 className="object-cover"

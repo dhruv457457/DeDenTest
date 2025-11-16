@@ -1026,33 +1026,6 @@ export default function ApplyPage() {
                       ))}
 
                       {/* No Room Preference */}
-                      <label
-                        className={`relative border-2 rounded-2xl p-5 cursor-pointer transition-all block ${
-                          currentSelectedRoomId === ""
-                            ? "border-gray-400 bg-gray-50 shadow-md"
-                            : "border-gray-200 hover:border-gray-300"
-                        }`}
-                        onClick={() => handleRoomSelection("", null)}
-                      >
-                        <input
-                          type="radio"
-                          {...register("selectedRoomId")}
-                          value=""
-                          className="sr-only"
-                        />
-                        <h4 className="font-bold text-gray-600 text-lg mb-1">
-                          No Room Preference (Default)
-                        </h4>
-                        <p className="text-sm text-gray-500">
-                          I will accept any available room, and the currency
-                          will be determined upon approval.
-                        </p>
-                        {currentSelectedRoomId === "" && (
-                          <div className="absolute top-3 right-3 w-6 h-6 bg-gray-500 rounded-full flex items-center justify-center">
-                            <Check size={16} className="text-white" />
-                          </div>
-                        )}
-                      </label>
                     </div>
 
                     {currentSelectedRoomId &&
