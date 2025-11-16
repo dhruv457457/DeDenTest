@@ -13,9 +13,9 @@ export function Navbar() {
   const router = useRouter();
 
   const navLinks = [
-    { href: "/experiences", label: "EXPERIENCES" },
+    { href: "/#gallery", label: "EXPERIENCES" },
     { href: "/villas", label: "UPCOMING VILLAS" },
-    { href: "/about", label: "ABOUT" },
+    { href: "/#about", label: "ABOUT" },
     { href: "/contact", label: "CONTACT" },
   ];
 
@@ -35,7 +35,7 @@ export function Navbar() {
           {/* Left side links */}
           <div className="flex items-center gap-10">
             <Link
-              href="/experiences"
+              href="/#gallery"
               className="text-md font-bold text-gray-300 hover:text-white transition-colors uppercase tracking-wide"
             >
               Experiences
@@ -63,7 +63,7 @@ export function Navbar() {
           {/* Right side links & Auth */}
           <div className="flex items-center gap-8">
             <Link
-              href="/about"
+              href="/#about"
               className="text-md font-bold text-gray-300 hover:text-white transition-colors uppercase tracking-wide"
             >
               About

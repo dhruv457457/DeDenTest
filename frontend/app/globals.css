@@ -10,3 +10,6 @@
   --font-berlin: berlin, "sans-serif";
   --font-inter: "Inter", "sans-serif";
 }
+html {
+  scroll-behavior: smooth;
+}

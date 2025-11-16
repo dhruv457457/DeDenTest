@@ -190,7 +190,10 @@ export default function HomePage() {
       </section>
 
       {/* About Us Section */}
-      <section className="bg-[#172a46] text-white py-28 relative -mt-90 z-0 pt-60">
+      <section
+        id="about"
+        className="bg-[#172a46] text-white py-28 relative -mt-90 z-0 pt-60"
+      >
         <div className="max-w-5xl mx-auto text-center px-6 z-10 relative">
           <h2 className="font-display text-3xl md:text-6xl font-bold mb-10">
             About Us
@@ -310,7 +313,7 @@ export default function HomePage() {
       </section>
 
       {/* Gallery Section */}
-      <section className="bg-[#E7E4DF] text-black pb-24">
+      <section id="gallery" className="bg-[#E7E4DF] text-black pb-24">
         <div className="max-w-screen-xl mx-auto px-6">
           <h2 className="font-display text-5xl md:text-6xl font-bold text-[#172a46] text-center mb-20">
             Gallery
