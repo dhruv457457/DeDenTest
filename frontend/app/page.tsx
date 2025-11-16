@@ -36,16 +36,16 @@ const testimonials = [
       "Staying at DeDen felt like joining a family of builders. From morning coffees to late-night brainstorms, every moment brought real connection and collaboration. I left with new friends, fresh ideas, and a renewed sense of energy for what I’m building.",
     quoteBold:
       "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
-    name: "Name ABCD, ABCDE @ABCDE",
+    name: "Satish,  @sta2234",
     colSpan: "md:col-span-4",
   },
   {
     id: 3,
     quote:
-      "DeDen turned the event week into something unforgettable. The villa vibe, the late-night chats, the spontaneous collabs — everything just clicked. It’s the first time an event stay actually helped me grow as a builder.",
+      "DeDen turned the event week into something unforgettable. The villa vibe, the late-night chats, the spontaneous collabs everything just clicked. It’s the first time an event stay actually helped me grow as a builder.",
     quoteBold:
       "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
-    name: "Name ABCD, ABCDE @ABCDE",
+    name: "Akshat, @nanogamer",
     colSpan: "md:col-span-3",
   },
   {
@@ -54,7 +54,7 @@ const testimonials = [
       "DeDen brought together some of the most genuine people I’ve met in Web3. The space made it easy to connect, share ideas, and feel inspired. It was the first event stay where I felt both productive and truly at home",
     quoteBold:
       "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
-    name: "Name ABCD, ABCDE @ABCDE",
+    name: "Rahul Bisht, @0xRahul23",
     colSpan: "md:col-span-3",
   },
   {
@@ -63,7 +63,7 @@ const testimonials = [
       "DeDen was the perfect place to connect and create. Great people, great energy, and conversations that actually mattered.",
     quoteBold:
       "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
-    name: "Name ABCD, ABCDE @ABCDE",
+    name: "Priya Tripathi, @your_priya",
     colSpan: "md:col-span-3",
   },
 ];
@@ -107,7 +107,7 @@ export default function HomePage() {
               </div>
             </div>
             <p className="w-full text-center md:text-start   font-berlin text-md md:text-2xl text-[#102E4A] mt-4  font-bold md:w-[90%]">
-              Decentralized Den is a luxury villa experience curated for the
+              Decentralized Den is a luxury stay experience curated for the
               biggest Web3 events.
             </p>
             <p className="w-full text-center md:text-start  font-berlin  text-md md:text-2xl text-[#102E4A]  font-bold md:w-[90%]">
@@ -228,7 +228,8 @@ export default function HomePage() {
             {/* Left Column */}
             <div className="flex flex-col order-2 md:order-1">
               <h3 className="font-display text-xl md:text-2xl lg:text-3xl font-bold text-[#172a46] leading-tight">
-                The Next Den Awaits — Bangalore | Nov 29 – Dec 10
+                The Next Den Awaits — IBW | <br />
+                Nov 29 – Dec 10
               </h3>
               <p className="text-lg md:text-xl text-gray-800 mt-8 font-bold leading-relaxed">
                 Experience India Blockchain Week like never before.
@@ -238,7 +239,7 @@ export default function HomePage() {
                 and unwind.
               </p>
               <p className="font-inter text-base text-gray-600 mt-4 -tracking-wider">
-                DeDen Bangalore is your home for IBW — a private villa designed
+                DeDen Bangalore is your home for IBW, a private villa designed
                 for deep conversations, sleepless builds, and unforgettable
                 after-hours. Join founders, investors, and creators who live
                 where innovation never sleeps.
