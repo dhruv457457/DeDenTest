@@ -148,7 +148,7 @@ export default function StayDetailsClient({ stay }: { stay: StayData }) {
                       <div>
                         <div className="text-sm text-gray-500">Price</div>
                         <div className="text-2xl font-bold text-[#172a46]">
-                          ${stay.priceUSDC} USDC
+                          ${stay.priceUSDC} USDC/USDT per Night
                         </div>
                       </div>
                     </div>
