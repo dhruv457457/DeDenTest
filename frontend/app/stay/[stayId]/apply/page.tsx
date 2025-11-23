@@ -842,7 +842,7 @@ export default function ApplyPage() {
                                <p className="text-xs text-purple-700 mt-1 leading-relaxed">
                                  Since you're booking for <strong>{calculatedNights} nights</strong>, you don't need to pay the full amount upfront.
                                  <br/>
-                                 After approval, just pay a <strong>$30 reservation fee</strong> to secure your spot. The rest is due on your check-in day!
+                                 After approval, just pay a <strong>$30 reservation fee</strong> to secure your spot. The rest is due on your check-in day or before as said by the organizers!
                                </p>
                              </div>
                            </div>
