@@ -5,8 +5,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/database';
 import { BookingStatus } from '@prisma/client';
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-
+import { authOptions } from "@/lib/auth";
 /**
  * Apply for a stay with referral code, loyalty discount, and reservation system support
  * POST /api/stays/[stayId]/apply

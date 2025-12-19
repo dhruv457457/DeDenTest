@@ -2,8 +2,7 @@
 
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/database';
-import { getServerSession } from "next-auth"; 
-import { authOptions } from "@/app/api/auth/[...nextauth]/route"; 
+
 
 /**
  * GET /api/bookings/[bookingId]
