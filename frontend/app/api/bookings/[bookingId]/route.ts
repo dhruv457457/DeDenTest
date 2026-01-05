@@ -1,8 +1,8 @@
-// ✅ UPDATED: Includes reservation fields so Payment Page knows to charge $30
+// File: app/api/bookings/[bookingId]/route.ts
+// ✅ UPDATED: Includes reservation fields + enabledChains for chain filtering
 
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/database';
-
 
 /**
  * GET /api/bookings/[bookingId]
@@ -44,7 +44,7 @@ export async function GET(
                 selectedRoomPriceUSDT: true,
                 selectedRoomName: true,
 
-                // ✅ NEW: Reservation Fields (CRITICAL for Payment Page)
+                // ✅ Reservation Fields (CRITICAL for Payment Page)
                 requiresReservation: true,
                 reservationAmount: true,
                 reservationPaid: true,
@@ -52,11 +52,13 @@ export async function GET(
                 remainingPaid: true,
                 numberOfNights: true,
 
+                // ✅ Stay relation with enabledChains
                 stay: {
                     select: {
                         title: true,
                         priceUSDC: true,
                         priceUSDT: true,
+                        enabledChains: true, // ✅ CRITICAL: Added for chain filtering
                     },
                 },
             },
